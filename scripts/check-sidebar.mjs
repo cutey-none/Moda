@@ -186,6 +186,15 @@ try {
           }
           if (cmd === 'file_exists') return true;
           if (cmd === 'save_document') {
+            // Assert the argument shape rather than reading it hopefully: the
+            // command once took a single 'request' struct while the frontend sent
+            // { path, contents }, and a stub that merely reads the fields cannot
+            // notice. See scripts/check-ipc-contract.mjs for the full contract.
+            if (typeof args.path !== 'string' || typeof args.contents !== 'string') {
+              return Promise.reject(
+                'save_document: expected { path, contents }, got ' + JSON.stringify(Object.keys(args)),
+              );
+            }
             return { path: args.path, name: 'x.md', contents: args.contents, modifiedMs: 0 };
           }
           return null;
