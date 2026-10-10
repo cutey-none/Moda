@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Moda's application icon.
+
+  1024x1024 source for `tauri icon`. The rounded-rect silhouette and its 18%
+  corner radius follow Apple's macOS app icon grid, so the icon sits correctly
+  next to system icons in the Dock.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="surface" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#4b7bf5"/>
+      <stop offset="100%" stop-color="#2d4fd0"/>
+    </linearGradient>
+    <linearGradient id="sheen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.22"/>
+      <stop offset="60%" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Rounded square, 18% radius -->
+  <rect x="0" y="0" width="1024" height="1024" rx="184" ry="184" fill="url(#surface)"/>
+  <rect x="0" y="0" width="1024" height="1024" rx="184" ry="184" fill="url(#sheen)"/>
+
+  <!-- The letterform. Drawn as strokes rather than text so the icon does not
+       depend on a font being installed on the build machine. -->
+  <g fill="none" stroke="#ffffff" stroke-width="86"
+     stroke-linecap="round" stroke-linejoin="round">
+    <path d="M 288 700 L 288 344 L 512 596 L 736 344 L 736 700"/>
+  </g>
+
+  <!-- Descender bar: the markdown "cursor" line, echoing a text caret. -->
+  <rect x="288" y="770" width="448" height="34" rx="17" fill="#ffffff" opacity="0.55"/>
+</svg>
