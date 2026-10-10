@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Moda</title>
+  </head>
+
+  <body>
+    <div class="app">
+      <!--
+        The title bar is drawn by the app rather than the system so the document
+        name sits next to the controls. The first stretch stays empty and
+        draggable because macOS places the traffic lights there.
+      -->
+      <header class="titlebar" data-tauri-drag-region>
+        <div class="titlebar__traffic" data-tauri-drag-region></div>
+
+        <div class="titlebar__doc" data-tauri-drag-region>
+          <span class="titlebar__name" id="doc-name">未命名</span>
+          <span class="titlebar__dirty" id="doc-dirty" hidden>●</span>
+        </div>
+
+        <div class="titlebar__actions">
+          <button class="btn" id="btn-new" title="新建 (⌘N)">新建</button>
+          <button class="btn" id="btn-open" title="打开 (⌘O)">打开</button>
+          <button class="btn" id="btn-save" title="保存 (⌘S)">保存</button>
+          <button class="btn" id="btn-save-as" title="另存为 (⇧⌘S)">另存为</button>
+          <span class="titlebar__sep"></span>
+          <button class="btn" id="btn-sidebar" title="显示 / 隐藏侧边栏 (⌘⇧E)">
+            侧边栏
+          </button>
+          <button class="btn btn--toggle" id="btn-mode" title="切换源码 / 所见即所得 (⌘/)">
+            源码
+          </button>
+        </div>
+      </header>
+
+      <main class="workspace">
+        <!--
+          The sidebar shows either the workspace file tree or the current
+          document's outline. Both hosts are always present; the app swaps which
+          one is visible, and each panel's own buttons follow.
+        -->
+        <aside class="sidebar" id="sidebar" hidden>
+          <div class="sidebar__tabs" role="tablist">
+            <button
+              class="sidebar__tab"
+              id="tab-files"
+              role="tab"
+              aria-selected="true"
+            >
+              文件
+            </button>
+            <button
+              class="sidebar__tab"
+              id="tab-outline"
+              role="tab"
+              aria-selected="false"
+            >
+              大纲
+            </button>
+          </div>
+
+          <div class="sidebar__panel" id="panel-files">
+            <div class="sidebar__head">
+              <span class="sidebar__title" id="sidebar-title">文件</span>
+              <span class="sidebar__actions">
+                <button class="btn btn--icon" id="btn-sidebar-folder" title="打开文件夹">
+                  打开
+                </button>
+                <button class="btn btn--icon" id="btn-sidebar-refresh" title="刷新文件树">
+                  刷新
+                </button>
+              </span>
+            </div>
+            <!-- The Sidebar renders its tree here. -->
+            <div class="sidebar__body" id="sidebar-tree"></div>
+          </div>
+
+          <div class="sidebar__panel" id="panel-outline" hidden>
+            <div class="sidebar__head">
+              <span class="sidebar__title">大纲</span>
+            </div>
+            <!-- The Outline renders the heading list here. -->
+            <div class="sidebar__body" id="sidebar-outline"></div>
+          </div>
+        </aside>
+
+        <div class="surface">
+          <!-- WYSIWYG surface. Crepe mounts into this element. -->
+          <div class="editor" id="editor"></div>
+
+          <!-- Source mode: the raw markdown, editable as plain text. -->
+          <textarea
+            class="source"
+            id="source"
+            spellcheck="false"
+            placeholder="在此输入 Markdown 源码……"
+            hidden
+          ></textarea>
+
+          <!-- Shown when no document is open yet. -->
+          <div class="empty" id="empty">
+            <div class="empty__inner">
+              <h1 class="empty__title">Moda</h1>
+              <p class="empty__hint">所见即所得的 Markdown 编辑器</p>
+              <div class="empty__actions">
+                <button class="btn btn--primary" id="btn-empty-new">新建文档</button>
+                <button class="btn" id="btn-empty-open">打开文件…</button>
+                <button class="btn" id="btn-empty-folder">打开文件夹…</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <footer class="statusbar">
+        <span class="statusbar__item" id="stat-words">0 字</span>
+        <span class="statusbar__item" id="stat-chars">0 字符</span>
+        <span class="statusbar__spacer"></span>
+        <span class="statusbar__item" id="stat-path"></span>
+        <span class="statusbar__item" id="stat-state">就绪</span>
+      </footer>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
