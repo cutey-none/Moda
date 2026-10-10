@@ -7,7 +7,7 @@
 
 use std::fs;
 use std::path::{Path, PathBuf};
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 /// A document read from disk, together with the path it came from.
 #[derive(Debug, Serialize)]
@@ -57,17 +57,6 @@ impl FileError {
     }
 }
 
-/// Where a save should go.
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SaveRequest {
-    /// Destination path. Always absolute, always chosen by the user or carried
-    /// over from the file that was opened.
-    pub path: String,
-    /// Full replacement text for the file.
-    pub contents: String,
-}
-
 fn file_name_of(path: &Path) -> String {
     path.file_name()
         .map(|name| name.to_string_lossy().into_owned())
@@ -105,16 +94,22 @@ pub fn read_document(path: String) -> Result<Document, FileError> {
 }
 
 /// Write a markdown file to disk, creating any missing parent directories.
+///
+/// Takes the path and contents as separate arguments rather than one struct, to
+/// match how every other command in this app is called. Tauri maps each Rust
+/// parameter to a named argument on the JavaScript side — `invoke('save_document',
+/// { path, contents })` — and a struct parameter would instead require the caller
+/// to wrap them in an object named after the parameter, which is a special case
+/// the frontend got wrong and which made saving fail outright.
 #[tauri::command]
-pub fn save_document(request: SaveRequest) -> Result<Document, FileError> {
-    let target = PathBuf::from(&request.path);
+pub fn save_document(path: String, contents: String) -> Result<Document, FileError> {
+    let target = PathBuf::from(&path);
     if let Some(parent) = target.parent() {
         if !parent.as_os_str().is_empty() {
             fs::create_dir_all(parent).map_err(|error| FileError::io(parent, error))?;
         }
     }
-    fs::write(&target, request.contents.as_bytes())
-        .map_err(|error| FileError::io(&target, error))?;
+    fs::write(&target, contents.as_bytes()).map_err(|error| FileError::io(&target, error))?;
 
     // Canonicalise for the same reason `read_document` does: on macOS `/var` is
     // a symlink to `/private/var`, so the path the caller wrote and the path a
@@ -125,7 +120,7 @@ pub fn save_document(request: SaveRequest) -> Result<Document, FileError> {
     Ok(Document {
         name: file_name_of(&resolved),
         path: resolved.display().to_string(),
-        contents: request.contents,
+        contents,
         modified_ms: modified_ms(&metadata),
     })
 }
@@ -147,10 +142,7 @@ mod tests {
         let target = scratch.path("note.md");
         let text = "# 标题\n\n正文，带 emoji 🎉 与 `code`。\n";
 
-        let saved = save_document(SaveRequest {
-            path: target.display().to_string(),
-            contents: text.to_string(),
-        })
+        let saved = save_document(target.display().to_string(), text.to_string())
         .expect("save should succeed");
         assert_eq!(saved.name, "note.md");
         assert_eq!(saved.contents, text);
@@ -173,10 +165,7 @@ mod tests {
         let scratch = Scratch::new("file");
         let nested = scratch.path("a/b/c/deep.md");
 
-        save_document(SaveRequest {
-            path: nested.display().to_string(),
-            contents: "deep".to_string(),
-        })
+        save_document(nested.display().to_string(), "deep".to_string())
         .expect("save should create the parent path");
 
         assert!(nested.is_file());
@@ -211,10 +200,7 @@ mod tests {
         let scratch = Scratch::new("file");
         let target = scratch.path("empty.md");
 
-        save_document(SaveRequest {
-            path: target.display().to_string(),
-            contents: String::new(),
-        })
+        save_document(target.display().to_string(), String::new())
         .expect("save empty");
 
         let read = read_document(target.display().to_string()).expect("read empty");
