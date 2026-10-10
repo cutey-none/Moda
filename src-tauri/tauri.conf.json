@@ -1,0 +1,60 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Moda",
+  "version": "0.1.0",
+  "identifier": "com.cutey.moda",
+  "build": {
+    "beforeDevCommand": "pnpm dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "pnpm build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "title": "Moda",
+        "width": 1080,
+        "height": 760,
+        "minWidth": 480,
+        "minHeight": 360,
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "category": "Productivity",
+    "shortDescription": "A WYSIWYG markdown editor",
+    "longDescription": "A WYSIWYG markdown editor: write in formatted prose, never in markup, and get plain .md files on disk.",
+    "copyright": "Moda contributors",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "fileAssociations": [
+      {
+        "ext": ["md", "markdown", "mdown", "mkd"],
+        "name": "Markdown Document",
+        "description": "Markdown text document",
+        "role": "Editor",
+        "mimeType": "text/markdown"
+      },
+      {
+        "ext": ["txt"],
+        "name": "Plain Text Document",
+        "description": "Plain text document",
+        "role": "Editor",
+        "mimeType": "text/plain"
+      }
+    ]
+  }
+}
