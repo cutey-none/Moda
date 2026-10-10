@@ -18,6 +18,8 @@
     "check:external-open": "node scripts/check-external-open.mjs",
     "check:menu": "node scripts/check-menu.mjs",
     "check:outline": "node scripts/check-outline.mjs",
+    "check:ipc-contract": "node scripts/check-ipc-contract.mjs",
+    "verify:save": "scripts/verify-save-in-app.sh",
     "tauri": "tauri"
   },
   "dependencies": {
