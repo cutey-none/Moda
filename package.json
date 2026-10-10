@@ -1,0 +1,41 @@
+{
+  "name": "moda",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "packageManager": "pnpm@10.20.0",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "check:caret": "node scripts/check-caret.mjs",
+    "check:typing": "node scripts/check-typing.mjs",
+    "check:scrolling": "node scripts/check-scrolling.mjs",
+    "check:shortcuts": "node scripts/check-shortcuts.mjs",
+    "check:rendering": "node scripts/check-rendering.mjs",
+    "check:sidebar": "node scripts/check-sidebar.mjs",
+    "check:external-open": "node scripts/check-external-open.mjs",
+    "check:menu": "node scripts/check-menu.mjs",
+    "check:outline": "node scripts/check-outline.mjs",
+    "tauri": "tauri"
+  },
+  "dependencies": {
+    "@codemirror/theme-one-dark": "^6.1.2",
+    "@codemirror/view": "^6.16.0",
+    "@milkdown/crepe": "7.22.2",
+    "@milkdown/kit": "7.22.2",
+    "@tauri-apps/api": "^2",
+    "@tauri-apps/plugin-dialog": "^2.8.1",
+    "@tauri-apps/plugin-opener": "^2",
+    "unist-util-visit": "^5.1.0"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2",
+    "@types/mdast": "^4.0.4",
+    "@types/unist": "^3.0.3",
+    "typescript": "~6.0.3",
+    "unified": "^11.0.5",
+    "vite": "^8.0.16"
+  }
+}
