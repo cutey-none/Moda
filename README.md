@@ -228,7 +228,19 @@ pnpm check:sidebar         # the file tree renders, expands, and opens files
 pnpm check:external-open   # a document from outside opens *and renders*
 pnpm check:menu            # native menu choices run their commands
 pnpm check:outline         # the outline lists headings and jumps to them
+pnpm check:ipc-contract    # every command gets the arguments its Rust side declares
 ```
+
+And one check that drives the real application rather than a browser, because it
+is the only one that reaches the actual IPC boundary:
+
+```bash
+pnpm tauri build && pnpm verify:save   # type into the built app, then save
+```
+
+It sends keystrokes through System Events, so the terminal it runs from needs
+Accessibility permission. Without that nothing is typed and the check fails
+rather than reporting a false pass.
 
 The sidebar, external-open and menu checks stub the IPC bridge, because they
 depend on Tauri commands a browser cannot run. That splits the coverage
@@ -236,7 +248,7 @@ rather than duplicating it: the Rust unit tests (23 of them) prove what the
 filesystem yields, which arguments count as documents, and how menu ids map to
 commands, while these prove what the UI does with the result.
 
-They found eight real defects that unit tests could not:
+They found nine real defects that unit tests and browser checks could not:
 
 - **The editor had no caret at all.** Crepe's `cursor` feature defaults to a
   *virtual* caret: it marks the editor `virtual-cursor-enabled`, which sets
@@ -284,6 +296,14 @@ They found eight real defects that unit tests could not:
   and saw each other's fixtures. It surfaced as the directory-walker test finding
   its neighbours' files. The helper is now shared (`src-tauri/src/test_support.rs`)
   and unique by timestamp, counter and thread.
+- **Saving never worked at all.** The Rust command took a single `request`
+  struct while the frontend sent `{ path, contents }`, so every save was rejected
+  with `invalid args \`request\` for command \`save_document\``. Nothing caught it
+  because no check crossed the boundary: the Rust tests call the function
+  directly, and the browser checks stub the bridge and happily read whichever
+  fields they are handed. It now takes `path` and `contents` like every other
+  command, and `check:ipc-contract` compares each command's recorded arguments
+  against the parameter names its Rust signature declares.
 
 Two false leads worth recording, both about the checks rather than the app:
 
