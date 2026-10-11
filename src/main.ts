@@ -8,6 +8,7 @@
 import { isTauri } from '@tauri-apps/api/core';
 
 import { launch } from './app';
+import { installSmoothWheel } from './smooth-wheel';
 
 /**
  * Tell the stylesheet which shell it is running in.
@@ -23,4 +24,5 @@ if (isTauri()) {
   document.documentElement.dataset.shell = 'tauri';
 }
 
+installSmoothWheel();
 void launch();
