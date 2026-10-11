@@ -7,6 +7,11 @@
  * of beside the text column, and make wheel handling unpredictable. This checks
  * which element actually scrolls once the document is taller than the viewport.
  *
+ * It also checks that the scroller can reach the end of the prose. A rule that
+ * clips ProseMirror itself to the viewport leaves `.milkdown` a few pixels of
+ * travel, which still counts as "one container scrolls" while the rest of the
+ * document is unreachable.
+ *
  * Usage: node scripts/check-scrolling.mjs [url]
  */
 
@@ -126,9 +131,11 @@ try {
     });
     const editor = document.getElementById('editor');
     const milkdown = document.querySelector('.milkdown');
+    const prose = document.querySelector('.milkdown .ProseMirror');
     return {
       editor: measure(editor, '#editor'),
       milkdown: measure(milkdown, '.milkdown'),
+      prose: measure(prose, '.ProseMirror'),
       scrollers: [editor, milkdown].filter((el) => el.scrollHeight > el.clientHeight + 1).length,
     };
   })()`);
@@ -137,6 +144,9 @@ try {
 
   if (report.scrollers === 0) {
     console.error('\nFAIL: nothing scrolls, but the document is taller than the viewport.');
+    process.exitCode = 1;
+  } else if (report.prose.canScroll) {
+    console.error('\nFAIL: the prose is clipped inside ProseMirror, so its end cannot be scrolled to.');
     process.exitCode = 1;
   } else if (report.scrollers > 1) {
     console.error(`\nFAIL: ${report.scrollers} nested containers scroll; expected exactly one.`);
