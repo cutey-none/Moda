@@ -7,87 +7,95 @@
   </head>
 
   <body>
+    <!--
+      Two panes: the sidebar, which runs the full height of the window so the
+      traffic lights sit on it, and the column beside it holding the editor.
+      The title bar and status bar float *inside* that column rather than taking
+      rows of the grid, so the prose scrolls underneath both and the glass has
+      something moving behind it to blur.
+    -->
     <div class="app">
       <!--
-        The title bar is drawn by the app rather than the system so the document
-        name sits next to the controls. The first stretch stays empty and
-        draggable because macOS places the traffic lights there.
+        The sidebar shows either the workspace file tree or the current
+        document's outline. Both hosts are always present; the app swaps which
+        one is visible, and each panel's own buttons follow.
       -->
-      <header class="titlebar" data-tauri-drag-region>
-        <div class="titlebar__traffic" data-tauri-drag-region></div>
-
-        <div class="titlebar__doc" data-tauri-drag-region>
-          <span class="titlebar__name" id="doc-name">未命名</span>
-          <span class="titlebar__dirty" id="doc-dirty" hidden>●</span>
-        </div>
-
-        <div class="titlebar__actions">
-          <button class="btn" id="btn-new" title="新建 (⌘N)">新建</button>
-          <button class="btn" id="btn-open" title="打开 (⌘O)">打开</button>
-          <button class="btn" id="btn-save" title="保存 (⌘S)">保存</button>
-          <button class="btn" id="btn-save-as" title="另存为 (⇧⌘S)">另存为</button>
-          <span class="titlebar__sep"></span>
-          <button class="btn" id="btn-sidebar" title="显示 / 隐藏侧边栏 (⌘⇧E)">
-            侧边栏
+      <aside class="sidebar" id="sidebar" hidden>
+        <div class="sidebar__tabs" role="tablist">
+          <button
+            class="sidebar__tab"
+            id="tab-files"
+            role="tab"
+            aria-selected="true"
+          >
+            文件
           </button>
-          <button class="btn btn--toggle" id="btn-mode" title="切换源码 / 所见即所得 (⌘/)">
-            源码
+          <button
+            class="sidebar__tab"
+            id="tab-outline"
+            role="tab"
+            aria-selected="false"
+          >
+            大纲
           </button>
         </div>
-      </header>
 
-      <main class="workspace">
+        <div class="sidebar__panel" id="panel-files">
+          <div class="sidebar__head">
+            <span class="sidebar__title" id="sidebar-title">文件</span>
+            <span class="sidebar__actions">
+              <button class="btn btn--icon" id="btn-sidebar-folder" title="打开文件夹">
+                打开
+              </button>
+              <button class="btn btn--icon" id="btn-sidebar-refresh" title="刷新文件树">
+                刷新
+              </button>
+            </span>
+          </div>
+          <!-- The Sidebar renders its tree here. -->
+          <div class="sidebar__body" id="sidebar-tree"></div>
+        </div>
+
+        <div class="sidebar__panel" id="panel-outline" hidden>
+          <div class="sidebar__head">
+            <span class="sidebar__title">大纲</span>
+          </div>
+          <!-- The Outline renders the heading list here. -->
+          <div class="sidebar__body" id="sidebar-outline"></div>
+        </div>
+      </aside>
+
+      <div class="main">
         <!--
-          The sidebar shows either the workspace file tree or the current
-          document's outline. Both hosts are always present; the app swaps which
-          one is visible, and each panel's own buttons follow.
+          Drawn by the app rather than the system so the document name sits next
+          to the controls. The first stretch stays empty and draggable because
+          macOS places the traffic lights there — but only while the sidebar is
+          hidden, since a visible sidebar already reserves that strip.
         -->
-        <aside class="sidebar" id="sidebar" hidden>
-          <div class="sidebar__tabs" role="tablist">
-            <button
-              class="sidebar__tab"
-              id="tab-files"
-              role="tab"
-              aria-selected="true"
-            >
-              文件
+        <header class="titlebar" data-tauri-drag-region>
+          <div class="titlebar__traffic" data-tauri-drag-region></div>
+
+          <div class="titlebar__doc" data-tauri-drag-region>
+            <span class="titlebar__name" id="doc-name">未命名</span>
+            <span class="titlebar__dirty" id="doc-dirty" hidden>●</span>
+          </div>
+
+          <div class="titlebar__actions">
+            <button class="btn" id="btn-new" title="新建 (⌘N)">新建</button>
+            <button class="btn" id="btn-open" title="打开 (⌘O)">打开</button>
+            <button class="btn" id="btn-save" title="保存 (⌘S)">保存</button>
+            <button class="btn" id="btn-save-as" title="另存为 (⇧⌘S)">另存为</button>
+            <span class="titlebar__sep"></span>
+            <button class="btn" id="btn-sidebar" title="显示 / 隐藏侧边栏 (⌘⇧E)">
+              侧边栏
             </button>
-            <button
-              class="sidebar__tab"
-              id="tab-outline"
-              role="tab"
-              aria-selected="false"
-            >
-              大纲
+            <button class="btn btn--toggle" id="btn-mode" title="切换源码 / 所见即所得 (⌘/)">
+              源码
             </button>
           </div>
+        </header>
 
-          <div class="sidebar__panel" id="panel-files">
-            <div class="sidebar__head">
-              <span class="sidebar__title" id="sidebar-title">文件</span>
-              <span class="sidebar__actions">
-                <button class="btn btn--icon" id="btn-sidebar-folder" title="打开文件夹">
-                  打开
-                </button>
-                <button class="btn btn--icon" id="btn-sidebar-refresh" title="刷新文件树">
-                  刷新
-                </button>
-              </span>
-            </div>
-            <!-- The Sidebar renders its tree here. -->
-            <div class="sidebar__body" id="sidebar-tree"></div>
-          </div>
-
-          <div class="sidebar__panel" id="panel-outline" hidden>
-            <div class="sidebar__head">
-              <span class="sidebar__title">大纲</span>
-            </div>
-            <!-- The Outline renders the heading list here. -->
-            <div class="sidebar__body" id="sidebar-outline"></div>
-          </div>
-        </aside>
-
-        <div class="surface">
+        <main class="surface">
           <!-- WYSIWYG surface. Crepe mounts into this element. -->
           <div class="editor" id="editor"></div>
 
@@ -112,16 +120,16 @@
               </div>
             </div>
           </div>
-        </div>
-      </main>
+        </main>
 
-      <footer class="statusbar">
-        <span class="statusbar__item" id="stat-words">0 字</span>
-        <span class="statusbar__item" id="stat-chars">0 字符</span>
-        <span class="statusbar__spacer"></span>
-        <span class="statusbar__item" id="stat-path"></span>
-        <span class="statusbar__item" id="stat-state">就绪</span>
-      </footer>
+        <footer class="statusbar">
+          <span class="statusbar__item" id="stat-words">0 字</span>
+          <span class="statusbar__item" id="stat-chars">0 字符</span>
+          <span class="statusbar__spacer"></span>
+          <span class="statusbar__item" id="stat-path"></span>
+          <span class="statusbar__item" id="stat-state">就绪</span>
+        </footer>
+      </div>
     </div>
 
     <script type="module" src="/src/main.ts"></script>

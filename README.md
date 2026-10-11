@@ -98,6 +98,11 @@ Check with `node -v`, `pnpm -v` and `rustc --version`.
   treated as one whitespace-delimited word.
 - Light and dark themes that follow the macOS appearance setting.
 - A centred, measure-limited column so long lines stay readable.
+- macOS 26 "liquid glass" chrome. The window is transparent and the system
+  material sits behind the webview, so the desktop is what the title bar,
+  sidebar and status bar are translucent over — the real `NSGlassEffectView`,
+  falling back to the older sidebar vibrancy material before macOS 26. The
+  editing surface stays opaque paper, so the prose keeps its contrast.
 
 **Shortcuts**
 
@@ -349,6 +354,24 @@ mv ~/.cargo/config.toml ~/.cargo/config.toml.disabled
 cargo build --manifest-path src-tauri/Cargo.toml
 mv ~/.cargo/config.toml.disabled ~/.cargo/config.toml
 ```
+
+An isolated `CARGO_HOME` also works and leaves the file alone. Two things are
+needed, and both are easy to miss:
+
+```bash
+mkdir -p /tmp/cargo-home && ln -s ~/.cargo/registry /tmp/cargo-home/registry
+cd /tmp   # must be outside $HOME, see below
+CARGO_HOME=/tmp/cargo-home cargo build --offline \
+  --manifest-path ~/code/moda/src-tauri/Cargo.toml
+```
+
+The symlink is what lets the build reach the crates already in the cache.
+Changing directory matters because Cargo discovers configuration by walking up
+from the *working directory*, not from the manifest — `~/.cargo/config.toml` is
+itself an ancestor of any checkout under `$HOME`, so it is read as a
+directory-level config even when `CARGO_HOME` points somewhere else. `--offline`
+is then satisfied by the cached crates.io index; the USTC mirror's index is an
+empty checkout, which is why offline mode finds nothing through it.
 
 ### `pnpm install` fails with `ERR_INVALID_THIS` or `ERR_PNPM_META_FETCH_FAIL`
 

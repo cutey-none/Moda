@@ -2054,6 +2054,7 @@ dependencies = [
  "tauri-plugin-opener",
  "tauri-plugin-single-instance",
  "url",
+ "window-vibrancy",
 ]
 
 [[package]]

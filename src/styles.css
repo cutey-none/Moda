@@ -19,28 +19,65 @@
     'PingFang SC', 'Hiragino Sans GB', sans-serif;
   --font-mono: 'SF Mono', ui-monospace, Menlo, Monaco, 'Cascadia Code', monospace;
 
-  --chrome-bg: #f6f6f6;
   --chrome-border: #e0e0e0;
   --chrome-fg: #3d3d3d;
   --chrome-fg-dim: #8a8a8a;
   --canvas-bg: #ffffff;
   --accent: #3b6ef0;
 
+  /* ---------------------------------------------------------- liquid glass
+   *
+   * The chrome is a pane of glass, not a painted bar. Three things make it read
+   * that way, and all three are needed:
+   *
+   *   `--glass-tint`   a wash laid over the material, which is what carries the
+   *                    chrome's own colour and keeps text legible over a
+   *                    photograph of a desktop.
+   *   the filter       `blur()` alone looks like fog; the saturation lift is
+   *                    what makes colour behind the glass bloom the way it does
+   *                    in the system materials.
+   *   `--glass-edge`   the specular rim. Liquid glass is lit from above, so the
+   *                    top hairline is bright and the bottom one is not. Without
+   *                    it the pane reads as flat translucency.
+   *
+   * In the Tauri shell the window is transparent and an `NSGlassEffectView`
+   * sits behind the webview, so the filter is blurring the real desktop. In a
+   * plain browser there is nothing behind the page; see the shell note near the
+   * `body` rule for what stands in for it.
+   */
+  --glass-tint: rgb(252 252 254 / 0.24);
+  --glass-tint-raised: rgb(255 255 255 / 0.62);
+  --glass-filter: blur(30px) saturate(180%);
+  --glass-edge: rgb(255 255 255 / 0.62);
+  --glass-edge-soft: rgb(255 255 255 / 0.28);
+  --glass-shadow: 0 1px 2px rgb(0 0 0 / 0.05), 0 8px 22px rgb(0 0 0 / 0.05);
+
   /* The measure a comfortable line of prose lands on. Typora tops out near
      920px; below that the window width decides. */
   --measure: 46rem;
   --titlebar-h: 38px;
-  --statusbar-h: 24px;
+  --statusbar-h: 26px;
+  --sidebar-w: 236px;
+  /* Clearance for the macOS traffic lights, which float over whatever the
+     window puts at its top-left. */
+  --traffic-w: 78px;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --chrome-bg: #2a2a2c;
     --chrome-border: #3a3a3d;
     --chrome-fg: #e4e4e6;
     --chrome-fg-dim: #8e8e93;
     --canvas-bg: #1e1e20;
     --accent: #6d95f5;
+
+    /* Dark glass is a dark wash, and its rim is far dimmer: a bright hairline
+       that reads as a lit edge on white glass reads as a scratch on black. */
+    --glass-tint: rgb(26 26 29 / 0.26);
+    --glass-tint-raised: rgb(64 64 70 / 0.62);
+    --glass-edge: rgb(255 255 255 / 0.14);
+    --glass-edge-soft: rgb(255 255 255 / 0.08);
+    --glass-shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 8px 22px rgb(0 0 0 / 0.24);
   }
 }
 
@@ -57,38 +94,154 @@ body {
   overflow: hidden;
 }
 
+/* Nothing may be painted behind the chrome.
+ *
+ * The window is transparent and the system material sits behind the webview, so
+ * an opaque `body` would cover the glass with a flat rectangle and the whole
+ * effect would collapse into ordinary translucency. Only the editing surface
+ * paints, and it paints itself.
+ */
 body {
   font-family: var(--font-ui);
   font-size: 13px;
   color: var(--chrome-fg);
-  background: var(--canvas-bg);
+  background: transparent;
   -webkit-font-smoothing: antialiased;
+}
+
+/* A browser has no desktop behind the page, so the glass would have nothing to
+   refract and the app would read as flat white. `main.ts` marks the document
+   when it finds the Tauri bridge; until then, stand a plausible desktop in for
+   the real one so `pnpm dev` shows what the shell will.
+ *
+ * The gradient is fixed rather than scrollable, because the thing it imitates
+ * does not move when the page does. It follows the colour scheme too — under
+ * Tauri the system material darkens whatever is behind the window, so a light
+ * stand-in in dark mode would flatter the chrome and hide exactly the contrast
+ * problem a stand-in exists to catch. */
+html:not([data-shell='tauri']) body {
+  background:
+    radial-gradient(90ch 60ch at 8% -10%, #ffd9a8 0%, transparent 62%),
+    radial-gradient(80ch 70ch at 96% 4%, #b3a6ff 0%, transparent 58%),
+    radial-gradient(70ch 70ch at 46% 116%, #86d5ff 0%, transparent 64%),
+    #e9edf4;
+}
+
+@media (prefers-color-scheme: dark) {
+  html:not([data-shell='tauri']) body {
+    background:
+      radial-gradient(90ch 60ch at 8% -10%, #6b4a22 0%, transparent 62%),
+      radial-gradient(80ch 70ch at 96% 4%, #3b2f73 0%, transparent 58%),
+      radial-gradient(70ch 70ch at 46% 116%, #1d4a63 0%, transparent 64%),
+      #1b1d22;
+  }
 }
 
 /* ------------------------------------------------------------------ app shell */
 
+/* Two panes side by side, the window's own corners rounding them. The sidebar
+   runs the full height of the window — traffic lights and all — which is what
+   makes it read as a pane the window sits in front of, rather than a band
+   tucked underneath a toolbar. */
 .app {
-  display: grid;
-  grid-template-rows: var(--titlebar-h) 1fr var(--statusbar-h);
+  display: flex;
   height: 100vh;
+  background: transparent;
 }
 
+/* The column beside the sidebar: title bar, editing surface, status bar. */
+.main {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+/* ---------------------------------------------------------------- glass panes */
+
+/* The shared material. Declared once, for all three bars, so they cannot drift
+   apart — a title bar that blurs 30px next to a status bar that blurs 20px is
+   the kind of thing that reads as a bug without anyone being able to name it. */
+.titlebar,
+.sidebar,
+.statusbar {
+  background: var(--glass-tint);
+  -webkit-backdrop-filter: var(--glass-filter);
+  backdrop-filter: var(--glass-filter);
+}
+
+/* The specular rim, and the sheen of light falling across the top of the pane.
+   Drawn as an overlay rather than a border so it costs no layout and cannot
+   shift the contents by a half pixel. */
+.titlebar::after,
+.sidebar::after,
+.statusbar::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: linear-gradient(
+    180deg,
+    rgb(255 255 255 / 0.14) 0%,
+    rgb(255 255 255 / 0) 52%
+  );
+  box-shadow:
+    inset 0 1px 0 var(--glass-edge),
+    inset 0 0 0 0.5px var(--glass-edge-soft);
+}
+
+@media (prefers-color-scheme: dark) {
+  .titlebar::after,
+  .sidebar::after,
+  .statusbar::after {
+    background-image: linear-gradient(
+      180deg,
+      rgb(255 255 255 / 0.06) 0%,
+      rgb(255 255 255 / 0) 52%
+    );
+  }
+}
+
+/* ----------------------------------------------------------------- title bar */
+
+/* A row of its own, and deliberately not floated over the editor.
+ *
+ * It is tempting to overlay the bars so prose slides beneath the glass, but the
+ * editing surface is opaque paper: floating a bar over it puts paper behind the
+ * glass, the native material never gets a say, and the window reads as a flat
+ * white page with two frosted strips. Kept out of the way, the only thing behind
+ * the chrome is the transparent window — which is where the system glass is. */
 .titlebar {
+  position: relative;
+  z-index: 2;
   display: flex;
   align-items: center;
   gap: 10px;
+  flex: none;
+  height: var(--titlebar-h);
   padding-right: 10px;
-  background: var(--chrome-bg);
   border-bottom: 1px solid var(--chrome-border);
+  /* Liquid glass is a layer sitting above the page, so the pane has to cast
+     something onto what it covers. Without it the bar reads as a strip of the
+     page that happens to be a different colour. */
+  box-shadow: var(--glass-shadow);
   user-select: none;
   -webkit-user-select: none;
 }
 
-/* Clearance for the macOS traffic lights. */
+/* Clearance for the macOS traffic lights. Only the title bar needs to leave it,
+   and only while the sidebar is hidden: the sidebar is full height and reserves
+   the same strip at its top, so with it showing this spacer would double the
+   gap and push the document name into the middle of the window. */
 .titlebar__traffic {
-  width: 78px;
+  width: var(--traffic-w);
   flex: none;
   align-self: stretch;
+}
+
+.sidebar:not([hidden]) + .main .titlebar__traffic {
+  display: none;
 }
 
 .titlebar__doc {
@@ -130,69 +283,85 @@ body {
   margin: 0 4px;
 }
 
+/* -------------------------------------------------------------- glass controls */
+
+/* Capsules, the shape every control takes on this material. `color-mix` against
+   the foreground means one rule covers both appearances: a dark wash on light
+   glass, a light one on dark, with no second definition to keep in step. */
 .btn {
   font: inherit;
   font-size: 12px;
   color: var(--chrome-fg);
   background: transparent;
   border: 1px solid transparent;
-  border-radius: 5px;
-  padding: 4px 9px;
+  border-radius: 999px;
+  padding: 4px 11px;
   cursor: default;
   white-space: nowrap;
+  transition: background-color 120ms ease, box-shadow 120ms ease;
 }
 
 .btn:hover {
   background: color-mix(in srgb, var(--chrome-fg) 9%, transparent);
+  box-shadow: inset 0 0.5px 0 var(--glass-edge-soft);
 }
 
 .btn:active {
   background: color-mix(in srgb, var(--chrome-fg) 16%, transparent);
+  box-shadow: none;
 }
 
+/* A filled capsule carries its own glass, so it needs the rim to match rather
+   than the wash the plain buttons use. */
 .btn--primary {
   background: var(--accent);
   color: #fff;
   font-size: 13px;
-  padding: 6px 14px;
+  padding: 6px 15px;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.28),
+    0 1px 2px rgb(0 0 0 / 0.16);
 }
 
 .btn--primary:hover {
   background: color-mix(in srgb, var(--accent) 86%, #000);
 }
 
+.btn--primary:active {
+  background: color-mix(in srgb, var(--accent) 78%, #000);
+  box-shadow: inset 0 1px 3px rgb(0 0 0 / 0.24);
+}
+
 .btn--toggle[aria-pressed='true'] {
   background: color-mix(in srgb, var(--accent) 18%, transparent);
   color: var(--accent);
+  box-shadow: inset 0 0 0 0.5px color-mix(in srgb, var(--accent) 35%, transparent);
 }
 
-/* ----------------------------------------------------------------- workspace */
+/* ------------------------------------------------------------- edit surface */
 
-.workspace {
-  display: flex;
-  min-height: 0;
-  overflow: hidden;
-  background: var(--canvas-bg);
-}
-
-/* The editing column. `position: relative` anchors the welcome overlay, which
-   must only cover the editor and not the sidebar. */
+/* The one pane that paints. `position: relative` anchors the welcome overlay,
+   which covers the editor and nothing else — not the sidebar, not the chrome. */
 .surface {
   position: relative;
   flex: 1;
   min-width: 0;
+  min-height: 0;
   overflow: hidden;
 }
 
 /* ------------------------------------------------------------------ sidebar */
 
 .sidebar {
+  position: relative;
   display: flex;
   flex-direction: column;
   flex: none;
-  width: 232px;
+  width: var(--sidebar-w);
   min-width: 0;
-  background: var(--chrome-bg);
+  /* The traffic lights float over the top-left of the window, and the sidebar
+     is what is under them. */
+  padding-top: var(--titlebar-h);
   border-right: 1px solid var(--chrome-border);
   user-select: none;
 }
@@ -207,8 +376,7 @@ body {
   justify-content: space-between;
   gap: 6px;
   flex: none;
-  padding: 6px 6px 6px 12px;
-  border-bottom: 1px solid var(--chrome-border);
+  padding: 2px 8px 8px 14px;
 }
 
 /* Which panel is showing: the file tree or the outline. Both hosts stay in the
@@ -226,23 +394,32 @@ body {
   display: none;
 }
 
+/* A segmented control: one capsule of glass with the selected segment raised
+   inside it, which is how the system draws this choice. */
 .sidebar__tabs {
   display: flex;
   flex: none;
-  border-bottom: 1px solid var(--chrome-border);
-  background: color-mix(in srgb, var(--chrome-fg) 4%, transparent);
+  gap: 2px;
+  margin: 4px 10px 6px;
+  padding: 2px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--chrome-fg) 7%, transparent);
+  box-shadow:
+    inset 0 0.5px 1px color-mix(in srgb, var(--chrome-fg) 10%, transparent),
+    inset 0 0 0 0.5px var(--glass-edge-soft);
 }
 
 .sidebar__tab {
   flex: 1;
-  padding: 6px 8px;
+  padding: 3px 8px;
   border: 0;
-  border-bottom: 2px solid transparent;
+  border-radius: 999px;
   background: transparent;
   font: inherit;
   font-size: 11.5px;
   color: var(--chrome-fg-dim);
   cursor: default;
+  transition: background-color 120ms ease, color 120ms ease;
 }
 
 .sidebar__tab:hover {
@@ -251,8 +428,11 @@ body {
 
 .sidebar__tab[aria-selected='true'] {
   color: var(--chrome-fg);
-  border-bottom-color: var(--accent);
   font-weight: 600;
+  background: var(--glass-tint-raised);
+  box-shadow:
+    inset 0 1px 0 var(--glass-edge),
+    0 0.5px 2px rgb(0 0 0 / 0.1);
 }
 
 .sidebar__title {
@@ -281,7 +461,9 @@ body {
   flex: 1;
   min-height: 0;
   overflow: auto;
-  padding: 4px 0 12px;
+  /* Inset so a row's capsule hover never runs into the pane's edge; the glass
+     rim lives there and a hover sliding under it looks like a rendering fault. */
+  padding: 0 8px 12px;
 }
 
 /* ----------------------------------------------------------------- outline */
@@ -299,8 +481,9 @@ body {
 .outline__row {
   display: block;
   width: 100%;
-  padding: 3px 8px;
+  padding: 3px 9px;
   border: 0;
+  border-radius: 5px;
   background: transparent;
   font: inherit;
   font-size: 12.5px;
@@ -320,6 +503,7 @@ body {
 .outline__row--active {
   background: color-mix(in srgb, var(--accent) 18%, transparent);
   color: var(--accent);
+  box-shadow: inset 0 0 0 0.5px color-mix(in srgb, var(--accent) 30%, transparent);
 }
 
 /* Shown while the document is being edited as raw text, where there is nothing
@@ -376,9 +560,9 @@ body {
   align-items: center;
   gap: 4px;
   width: 100%;
-  padding: 3px 8px;
+  padding: 3px 9px;
   border: 0;
-  border-radius: 0;
+  border-radius: 5px;
   background: transparent;
   font: inherit;
   font-size: 12.5px;
@@ -395,6 +579,7 @@ body {
   background: color-mix(in srgb, var(--accent) 20%, transparent);
   color: var(--accent);
   font-weight: 600;
+  box-shadow: inset 0 0 0 0.5px color-mix(in srgb, var(--accent) 30%, transparent);
 }
 
 /* A file the app cannot open. Still clickable, so the reason can be reported. */
@@ -513,15 +698,21 @@ body {
 
 /* --------------------------------------------------------------- statusbar */
 
+/* The other end of the same pane, for the same reason: behind it is the window,
+   not the document. */
 .statusbar {
+  position: relative;
+  z-index: 2;
   display: flex;
   align-items: center;
   gap: 14px;
-  padding: 0 12px;
+  flex: none;
+  height: var(--statusbar-h);
+  padding: 0 14px;
   font-size: 11px;
   color: var(--chrome-fg-dim);
-  background: var(--chrome-bg);
   border-top: 1px solid var(--chrome-border);
+  box-shadow: var(--glass-shadow);
   user-select: none;
 }
 

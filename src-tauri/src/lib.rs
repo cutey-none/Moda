@@ -13,6 +13,38 @@ mod open_files;
 mod test_support;
 
 use open_files::PendingOpenFiles;
+use tauri::Manager;
+
+/// Gives the window its macOS backing material, so the chrome has something to
+/// be translucent *over*.
+///
+/// The frontend paints nothing behind the title bar, sidebar and status bar, and
+/// `tauri.conf.json` marks the window transparent, so the desktop is visible
+/// through the webview in exactly those places. This puts the system material in
+/// that gap. `NSGlassEffectView` is the genuine macOS 26 liquid glass; it reports
+/// `UnsupportedPlatformVersion` on anything older, where the sidebar vibrancy
+/// material is the closest equivalent. Neither failure is worth aborting over —
+/// the CSS glass still reads as translucency without a native layer behind it.
+#[cfg(target_os = "macos")]
+fn apply_window_material(window: &tauri::WebviewWindow) {
+    use window_vibrancy::{LiquidGlassOptions, NSGlassEffectViewStyle, NSVisualEffectMaterial};
+
+    let glass = window_vibrancy::apply_liquid_glass(
+        window.clone(),
+        LiquidGlassOptions::new(NSGlassEffectViewStyle::Regular),
+    );
+
+    if glass.is_err() {
+        // Below macOS 26 there is no glass view to install, and the sidebar
+        // material is the nearest thing the older API offers.
+        let _ = window_vibrancy::apply_vibrancy(
+            window.clone(),
+            NSVisualEffectMaterial::Sidebar,
+            None,
+            None,
+        );
+    }
+}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -47,6 +79,13 @@ pub fn run() {
             // its commands listed from the first moment the window appears.
             let menu = menu::build(app.handle())?;
             app.set_menu(menu)?;
+
+            // The glass sits behind the webview, so it has to be in place before
+            // the window is ever painted, or the first frame flashes desktop.
+            #[cfg(target_os = "macos")]
+            if let Some(window) = app.get_webview_window("main") {
+                apply_window_material(&window);
+            }
 
             // A document named on the command line — a cold launch from Finder,
             // or `moda note.md` — is queued and announced. The frontend drains
