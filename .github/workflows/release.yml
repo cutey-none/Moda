@@ -33,7 +33,7 @@ jobs:
     name: Validate the tag
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: The tag is a version
         run: |
@@ -74,7 +74,7 @@ jobs:
             target: x86_64-apple-darwin
             arch: x64
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v4 # takes the version from `packageManager`
