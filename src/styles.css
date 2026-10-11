@@ -52,15 +52,34 @@
   --glass-edge-soft: rgb(255 255 255 / 0.28);
   --glass-shadow: 0 1px 2px rgb(0 0 0 / 0.05), 0 8px 22px rgb(0 0 0 / 0.05);
 
-  /* The measure a comfortable line of prose lands on. Typora tops out near
-     920px; below that the window width decides. */
-  --measure: 46rem;
+  /* The width of a line of text, in both modes. Taken from Typora's GitHub
+     theme, which widens its column in steps as the window grows: 800px of text
+     in an ordinary window, more once the window is wide enough to spare it.
+     See the breakpoints just below. */
+  --measure: 800px;
+  /* The space either side of the text inside the column, as in Typora. */
+  --measure-gutter: 30px;
   --titlebar-h: 38px;
   --statusbar-h: 26px;
   --sidebar-w: 236px;
   /* Clearance for the macOS traffic lights, which float over whatever the
      window puts at its top-left. */
   --traffic-w: 78px;
+}
+
+/* Typora's steps, keyed to the window width as Typora's are: a full-screen
+   window on a 1440–1728pt laptop lands on the first, a 1920pt display on the
+   second. */
+@media (min-width: 1400px) {
+  :root {
+    --measure: 964px;
+  }
+}
+
+@media (min-width: 1800px) {
+  :root {
+    --measure: 1140px;
+  }
 }
 
 @media (prefers-color-scheme: dark) {
@@ -760,11 +779,12 @@ html:not([data-shell='tauri']) body {
 
 /* Centre the column and give the prose room to breathe. Crepe's reset sets
    `padding: 60px 120px`; a max-width plus auto margins reads better and keeps
-   the measure stable as the window grows. */
+   the measure stable as the window grows. The gutters are inside the column,
+   so the text itself is exactly `--measure` wide. */
 .milkdown .ProseMirror {
-  max-width: var(--measure);
+  max-width: calc(var(--measure) + 2 * var(--measure-gutter));
   margin: 0 auto;
-  padding: 44px 32px 45vh;
+  padding: 44px var(--measure-gutter) 45vh;
   outline: none;
   line-height: 1.75;
 }
