@@ -18,6 +18,7 @@
     "check:external-open": "node scripts/check-external-open.mjs",
     "check:menu": "node scripts/check-menu.mjs",
     "check:outline": "node scripts/check-outline.mjs",
+    "check:autosave": "node scripts/check-autosave.mjs",
     "check:ipc-contract": "node scripts/check-ipc-contract.mjs",
     "check:bundle": "scripts/check-macos-bundle.sh",
     "verify:save": "scripts/verify-save-in-app.sh",
