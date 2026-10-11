@@ -1,7 +1,7 @@
 {
   "name": "moda",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.0.1",
   "type": "module",
   "packageManager": "pnpm@10.20.0",
   "scripts": {
@@ -19,6 +19,7 @@
     "check:menu": "node scripts/check-menu.mjs",
     "check:outline": "node scripts/check-outline.mjs",
     "check:ipc-contract": "node scripts/check-ipc-contract.mjs",
+    "check:bundle": "scripts/check-macos-bundle.sh",
     "verify:save": "scripts/verify-save-in-app.sh",
     "tauri": "tauri"
   },

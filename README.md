@@ -149,8 +149,9 @@ Not implemented yet:
 - Preferences, custom themes, and user stylesheets
 - Mermaid diagrams
 - Typewriter and focus modes
-- Bundle polish: signing, notarisation, and `CFBundleDocumentTypes` so Finder can
-  open `.md` files with Moda
+- Bundle polish: `CFBundleDocumentTypes` so Finder can open `.md` files with Moda
+  (the app already declares the associations; Finder still hands the file to
+  whatever owns the extension)
 
 ## Architecture
 
@@ -170,6 +171,9 @@ scripts/
   check-scrolling.mjs
   check-shortcuts.mjs
   check-rendering.mjs
+  check-macos-bundle.sh  the built bundle is ad-hoc signed (see Distribution)
+.github/
+  workflows/release.yml  tag-triggered release: unsigned macOS DMGs
 src-tauri/
   src/lib.rs          Tauri builder: plugins and the command registry
   src/file_ops.rs     reading and writing markdown files
@@ -246,6 +250,14 @@ pnpm tauri build && pnpm verify:save   # type into the built app, then save
 It sends keystrokes through System Events, so the terminal it runs from needs
 Accessibility permission. Without that nothing is typed and the check fails
 rather than reporting a false pass.
+
+And one that inspects the built bundle instead of running it, so the
+[Distribution](#distribution) claims are asserted rather than assumed:
+
+```bash
+pnpm tauri build && pnpm check:bundle   # ad-hoc signed, and Gatekeeper says
+                                        # "unidentified", not "damaged"
+```
 
 The sidebar, external-open and menu checks stub the IPC bridge, because they
 depend on Tauri commands a browser cannot run. That splits the coverage
@@ -388,6 +400,219 @@ version automatically once enabled.
 
 `edition = "2024"` needs Rust 1.90 or newer. Run `rustup update stable`.
 
+## Distribution
+
+Moda ships **unsigned**: no Apple Developer ID certificate, no notarisation, no
+Apple Developer Program membership. That is the same choice MarkText makes, and
+it is the usual one for an AGPL desktop app distributed directly. It costs users
+one Terminal command on first launch.
+
+Installing it: [Installing a release](#installing-a-release). Publishing it:
+[Cutting a release](#cutting-a-release). Why it works this way:
+[Why the bundle is still signed](#why-the-bundle-is-still-signed-just-not-by-apple).
+
+```bash
+pnpm tauri build    # Moda.app + Moda_<version>_<arch>.dmg
+pnpm check:bundle   # asserts the signing story below still holds
+```
+
+### Installing a release
+
+#### 1. Download the build for your Mac
+
+| Your Mac | Download |
+| --- | --- |
+| Apple Silicon (M1, M2, M3, M4, …) | the file ending `_aarch64.dmg` |
+| Intel | the file ending `_x64.dmg` |
+
+Not sure which you have? Apple menu → **About This Mac** → **Chip** (or
+**Processor**). "Apple M…" is Apple Silicon, "Intel Core…" is Intel. The `x64`
+build will also run on Apple Silicon if Rosetta 2 is installed, more slowly; the
+`aarch64` build will not run on an Intel Mac at all.
+
+#### 2. Install it
+
+Open the `.dmg`, drag **Moda** onto the **Applications** shortcut in the same
+window, and eject the disk image. Nothing hides anywhere: Moda is a single `.app`
+bundle, so uninstalling means deleting it (step 6).
+
+#### 3. The first launch is refused — this is expected
+
+Moda has no Apple Developer ID, so macOS cannot check it and will not open it the
+first time. You will see one of two things:
+
+| What macOS shows | What it means |
+| --- | --- |
+| "Moda cannot be opened because the developer cannot be verified"; on macOS 15 and later a dialog headed **"Moda" Not Opened** saying Apple could not verify it is free of malware | Normal for an unsigned app. Step 4 fixes it. |
+| "Moda is damaged and can't be opened. You should move it to the Trash." | Not normal. The download or its signature is broken. Check step 5, then step 4 option C. |
+
+#### 4. Let it through — pick one
+
+**Option A — Terminal, every version of macOS.** This is the one to reach for:
+
+```bash
+xattr -cr /Applications/Moda.app
+```
+
+The download carries an extended attribute (`com.apple.quarantine`) recording
+where it came from, and Gatekeeper only challenges apps that carry it. Clearing it
+is a one-off. `-cr` clears every extended attribute from the bundle
+*recursively* — the instruction MarkText ships, and safer than
+`xattr -d com.apple.quarantine /Applications/Moda.app`, which removes one
+attribute from the bundle root and leaves any nested copy behind.
+
+Then open Moda normally. A new release is a new download with a new quarantine
+attribute, so this repeats once per version you download.
+
+**Option B — System Settings, macOS 15 and later.** Apple removed the
+Control-click → Open override in Sequoia ([Apple, August 2024][apple-sequoia]), so
+the GUI route is:
+
+1. Try to open Moda, read the dialog, and dismiss it.
+2. **System Settings → Privacy & Security**.
+3. Scroll to **Security** and click **Open Anyway** next to the message about Moda.
+4. Authenticate, then open Moda again and confirm.
+
+That button appears only because the bundle's signature is valid. On a build whose
+signature is broken, macOS does not offer it at all.
+
+**Option C — when macOS insists the app is damaged.** That means the ad-hoc
+signature did not survive the trip (an interrupted download, an unzip that dropped
+metadata, a copy made by a tool that strips it). Re-sign it with the same command
+the release build uses, then clear quarantine:
+
+```bash
+codesign --force --deep --sign - /Applications/Moda.app
+xattr -cr /Applications/Moda.app
+```
+
+Neither command needs an Apple ID, and they only affect that copy of the app on
+your machine.
+
+[apple-sequoia]: https://developer.apple.com/news/?id=saqachfa
+
+#### 5. Verify the download
+
+Every release lists the SHA-256 of each file in `SHA256SUMS.txt`. Download that
+file alongside the `.dmg`, then:
+
+```bash
+cd ~/Downloads
+shasum -a 256 -c SHA256SUMS.txt --ignore-missing
+```
+
+Each line prints `OK` or `FAILED`. (macOS ships `shasum`, not GNU `sha256sum`; both
+take `-c`.) This is also how to answer "what makes an unsigned build trustworthy?":
+the files are built by GitHub Actions from a tag in this repository, so the release
+is reproducible from the source you can read, and the checksum is what tells you
+the file you got is the file that was built.
+
+#### 6. Uninstalling
+
+Quit Moda and delete `/Applications/Moda.app`. Your documents are ordinary `.md`
+files wherever you saved them and are not touched. To remove the preferences and
+webview storage as well:
+
+```bash
+rm -rf ~/Library/WebKit/com.cutey.moda \
+       ~/Library/Caches/com.cutey.moda \
+       ~/Library/Preferences/com.cutey.moda.plist
+```
+
+#### 7. Rather not download a binary at all?
+
+Build it from source — the same code, compiled on your machine, with no Gatekeeper
+step anywhere: see [Quick start](#quick-start).
+
+### Cutting a release
+
+To cut a release, bump the version in `package.json` **and**
+`src-tauri/tauri.conf.json` (the workflow refuses to build when they disagree with
+the tag), commit, then tag and push:
+
+```bash
+git tag v0.2.0 && git push origin v0.2.0
+```
+
+[release.yml](.github/workflows/release.yml) takes it from there:
+
+1. **Validates** the tag (`vX.Y.Z`, optionally `-prerelease`) against both version
+   files.
+2. **Builds** each architecture on its own runner — `macos-15` for Apple Silicon,
+   `macos-15-intel` for Intel — running `pnpm typecheck`, the Rust tests, and
+   `pnpm tauri build --target …`. There is no certificate step and no notarisation
+   step, because there is nothing to sign with.
+3. **Checks** each bundle with [check-macos-bundle.sh](scripts/check-macos-bundle.sh),
+   so a release cannot be published from a build that has slipped back into the
+   "damaged" state.
+4. **Publishes** `Moda_<version>_aarch64.dmg`, `Moda_<version>_x64.dmg` and a
+   combined `SHA256SUMS.txt`, with the note below written into the release body.
+
+A tag containing a hyphen (`v0.2.0-rc.1`) is published as a pre-release. The
+workflow creates the release as a draft and then promotes it in a second step, so
+that it also works in repositories with immutable releases enabled; delete the last
+step of the `release` job if you would rather read the notes before publishing.
+
+The note every release carries:
+
+```text
+⚠️ Note for macOS users
+
+Moda is unsigned (no Apple Developer ID, no notarisation). After dragging Moda
+into Applications, clear the quarantine flag once:
+
+    xattr -cr /Applications/Moda.app
+
+Then open Moda normally. On macOS 15 and later you can do the same thing without
+the Terminal: System Settings → Privacy & Security → Open Anyway.
+```
+
+Local builds are per-architecture as well: `pnpm tauri build` produces the `.dmg`
+for the machine you are on, and a universal image needs both Rust targets:
+
+```bash
+rustup target add x86_64-apple-darwin
+pnpm tauri build --target universal-apple-darwin
+```
+
+### Why the bundle is still signed, just not by Apple
+
+`bundle.macOS.signingIdentity` is set to `"-"`, Tauri's pseudo-identity for an
+**ad-hoc** signature ([Tauri's macOS signing guide][tauri-sign]). On Apple
+Silicon this is not optional. Every arm64 binary must carry *some* signature, and
+the one the linker writes is not a bundle signature: it seals no resources, so
+the output of a plain `tauri build` fails verification:
+
+```
+$ codesign --verify --strict Moda.app
+Moda.app: code has no resources but signature indicates they must be present
+```
+
+macOS shows that failure to users as **"Moda is damaged and can't be opened"** —
+the one Gatekeeper verdict `xattr` cannot clear and System Settings cannot
+override. Ad-hoc signing the finished bundle makes it internally valid, so
+Gatekeeper refuses it as an *unidentified developer* instead, which
+[step 4](#4-let-it-through--pick-one) does clear. Ad-hoc signing changes *which*
+refusal users see, from unfixable to fixable; it does not earn trust the bundle
+does not have, and a notarisation ticket is the only thing that would.
+
+`pnpm check:bundle` builds a quarantined copy of the app, asks Gatekeeper to
+judge it, and fails if the verdict has slipped back to "damaged".
+
+[tauri-sign]: https://v2.tauri.app/distribute/sign/macos/
+
+### Why notarisation is not used
+
+Notarising needs an Apple Developer Program membership (≈ $99/yr), which an
+open-source project with no revenue has no reason to pay for — MarkText does not
+either. What it would buy is a first launch with no dialog and no Terminal step.
+What it would not change is anything else about the build: pointing
+`signingIdentity` at a *Developer ID Application* identity and supplying
+`APPLE_ID`, `APPLE_PASSWORD` and `APPLE_TEAM_ID` is the entire difference.
+Notarisation is also a requirement for the Mac App Store, which
+[the licensing section](#licensing-and-commercial-use) explains is a poor fit for
+AGPL code in the first place.
+
 ## Licensing and commercial use
 
 ### Moda's own licence
@@ -409,8 +634,9 @@ it is easy to assume "open source" also means "closed-source product is fine":
   your own code.
 - **The Mac App Store is a poor fit for AGPL.** Apple's terms impose additional
   restrictions on redistribution and usage that conflict with AGPL §10 ("you may
-  not impose any further restrictions"). Direct distribution (a signed and
-  notarised `.dmg`) is the usual route for AGPL macOS apps.
+  not impose any further restrictions"). Direct distribution — an unsigned
+  `.dmg`, see [Distribution](#distribution) — is the usual route for AGPL macOS
+  apps.
 
 If that is not what you want, decide now rather than after shipping — switching
 later means every past recipient keeps the rights they already received.
@@ -443,6 +669,7 @@ Two obligations under any licence choice:
    Do not imply endorsement by the Tauri Programme.
 
 Notarising a macOS build needs an Apple Developer Program membership
-(≈ $99/yr). The icon set in `src-tauri/icons` is generated from
-`src-tauri/icons/moda-icon.svg` with `pnpm tauri icon`; regenerate it there if
-the mark changes.
+(≈ $99/yr). Moda does not do it; see [Distribution](#distribution) for what the
+released `.dmg` is signed with instead. The icon set in `src-tauri/icons` is
+generated from `src-tauri/icons/moda-icon.svg` with `pnpm tauri icon`;
+regenerate it there if the mark changes.

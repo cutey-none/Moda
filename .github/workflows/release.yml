@@ -1,0 +1,227 @@
+# Release Moda: build the unsigned macOS bundles and publish them.
+#
+# Moda deliberately ships without an Apple Developer ID, so there is no signing
+# certificate and no notarisation anywhere in this file — the only credential is
+# the GITHUB_TOKEN GitHub provides. What makes an unsigned bundle usable at all
+# is that Tauri ad-hoc signs it (`bundle.macOS.signingIdentity` in
+# `src-tauri/tauri.conf.json`); the `check-macos-bundle.sh` step below fails the
+# release if that ever stops happening, because the alternative for users is a
+# "Moda is damaged and can't be opened" dialog that nothing can clear.
+#
+# Cutting a release: bump the version in `package.json` *and*
+# `src-tauri/tauri.conf.json`, commit, then
+#
+#   git tag v0.2.0 && git push origin v0.2.0
+
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+# A release is never cancelled halfway: leave a running one alone.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate the tag
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: The tag is a version
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          if ! [[ "$tag" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::'$tag' is not vX.Y.Z (or vX.Y.Z-prerelease); refusing to build a release from it"
+            exit 1
+          fi
+
+      # The DMG is named from tauri.conf.json and the tag is what users see, so a
+      # mismatch here ships a file that disagrees with its own release.
+      - name: Both version files agree with the tag
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          for file in package.json src-tauri/tauri.conf.json; do
+            version="$(node -p "require('./$file').version")"
+            if [ "$version" != "$tag" ]; then
+              echo "::error::$file says $version but the tag says $tag — bump the version first"
+              exit 1
+            fi
+          done
+          echo "Version $tag agrees in package.json and tauri.conf.json."
+
+  build:
+    name: Build (${{ matrix.name }})
+    needs: validate
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macos-arm64
+            os: macos-15 # Apple Silicon
+            target: aarch64-apple-darwin
+            arch: aarch64
+          - name: macos-x64
+            os: macos-15-intel # Intel
+            target: x86_64-apple-darwin
+            arch: x64
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4 # takes the version from `packageManager`
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      # `cargo test` compiles the app crate, and tauri-build embeds `frontendDist`
+      # when it is not a dev-profile build. Build it first so the test step never
+      # depends on which of those it is.
+      - name: Build the frontend
+        run: pnpm build
+
+      - name: Rust tests
+        run: cargo test --manifest-path src-tauri/Cargo.toml
+
+      # No certificate and no notarisation: the bundle comes out ad-hoc signed.
+      - name: Build the bundle
+        run: pnpm tauri build --target ${{ matrix.target }}
+
+      - name: The bundle is ad-hoc signed rather than damaged
+        run: ./scripts/check-macos-bundle.sh "src-tauri/target/${{ matrix.target }}/release/bundle/macos/Moda.app"
+
+      # The disk image name is derived from the architecture, so assert it: a
+      # silent rename would publish a file whose name contradicts its contents.
+      - name: Checksum the disk image
+        working-directory: src-tauri/target/${{ matrix.target }}/release/bundle/dmg
+        run: |
+          shopt -s nullglob
+          images=( *.dmg )
+          if [ "${#images[@]}" -ne 1 ]; then
+            echo "::error::expected exactly one .dmg, found ${#images[@]}"
+            ls -l
+            exit 1
+          fi
+          case "${images[0]}" in
+            *_${{ matrix.arch }}.dmg) ;;
+            *)
+              echo "::error::unexpected disk image name '${images[0]}', expected a '_${{ matrix.arch }}.dmg' suffix"
+              exit 1
+              ;;
+          esac
+          shasum -a 256 "${images[0]}" > "SHA256SUMS-${{ matrix.name }}.txt"
+          cat "SHA256SUMS-${{ matrix.name }}.txt"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}
+          if-no-files-found: error
+          retention-days: 7
+          path: |
+            src-tauri/target/${{ matrix.target }}/release/bundle/dmg/*.dmg
+            src-tauri/target/${{ matrix.target }}/release/bundle/dmg/SHA256SUMS-*.txt
+
+  release:
+    name: Publish the release
+    needs: build
+    runs-on: ubuntu-latest
+    # Per-job permissions replace the workflow-level ones, so both are declared:
+    # contents:write to publish the release, actions:read for download-artifact.
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Merge the per-architecture checksums
+        working-directory: dist
+        run: |
+          cat SHA256SUMS-*.txt | LC_ALL=C sort -k2 > SHA256SUMS.txt
+          rm -f SHA256SUMS-*.txt
+          cat SHA256SUMS.txt
+
+      # Written here rather than by hand so every release carries the same
+      # instructions, in the words the README uses.
+      - name: Compose the release notes
+        run: |
+          cat > release_body.md <<'EOF'
+          ## ⚠️ Note for macOS users
+
+          Moda is **unsigned**: no Apple Developer ID, no notarisation. That is a
+          deliberate choice for an open-source project, and it means macOS will
+          refuse the first launch. Drag Moda into Applications, then clear the
+          quarantine flag once:
+
+          ```
+          xattr -cr /Applications/Moda.app
+          ```
+
+          Then open Moda normally. On macOS 15 and later you can do the same thing
+          without the Terminal: **System Settings → Privacy & Security → Open
+          Anyway**.
+
+          Step-by-step instructions, including which download you need and how to
+          verify it: https://github.com/${{ github.repository }}/blob/${{ github.ref_name }}/README.md#installing-a-release
+
+          ## Downloads
+
+          | Your Mac | Download |
+          | --- | --- |
+          | Apple Silicon (M1 and later) | the file ending `_aarch64.dmg` |
+          | Intel | the file ending `_x64.dmg` |
+
+          Not sure which you have? Apple menu → About This Mac → Chip (or
+          Processor).
+
+          Every file's SHA-256 is listed in `SHA256SUMS.txt`:
+
+          ```
+          cd ~/Downloads
+          shasum -a 256 -c SHA256SUMS.txt --ignore-missing
+          ```
+          EOF
+
+      # Draft first, then publish: repositories with immutable releases forbid
+      # adding assets to a release that is already published. Delete the last step
+      # if you would rather read the notes and press publish yourself.
+      - name: Create the draft release with its assets
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          generate_release_notes: true
+          body_path: release_body.md
+          files: dist/*
+
+      - name: Publish it
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release edit "${GITHUB_REF_NAME}" --draft=false --repo "${GITHUB_REPOSITORY}"
