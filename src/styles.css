@@ -220,7 +220,7 @@ html:not([data-shell='tauri']) body {
   gap: 10px;
   flex: none;
   height: var(--titlebar-h);
-  padding-right: 10px;
+  padding: 0 10px;
   border-bottom: 1px solid var(--chrome-border);
   /* Liquid glass is a layer sitting above the page, so the pane has to cast
      something onto what it covers. Without it the bar reads as a strip of the

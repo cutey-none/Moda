@@ -75,11 +75,6 @@
         <header class="titlebar" data-tauri-drag-region>
           <div class="titlebar__traffic" data-tauri-drag-region></div>
 
-          <div class="titlebar__doc" data-tauri-drag-region>
-            <span class="titlebar__name" id="doc-name" data-tauri-drag-region>未命名</span>
-            <span class="titlebar__dirty" id="doc-dirty" data-tauri-drag-region hidden>●</span>
-          </div>
-
           <div class="titlebar__actions">
             <button class="btn" id="btn-new" title="新建 (⌘N)">新建</button>
             <button class="btn" id="btn-open" title="打开 (⌘O)">打开</button>
@@ -92,6 +87,13 @@
             <button class="btn btn--toggle" id="btn-mode" title="切换源码 / 所见即所得 (⌘/)">
               源码
             </button>
+          </div>
+
+          <span class="titlebar__sep"></span>
+
+          <div class="titlebar__doc" data-tauri-drag-region>
+            <span class="titlebar__name" id="doc-name" data-tauri-drag-region>未命名</span>
+            <span class="titlebar__dirty" id="doc-dirty" data-tauri-drag-region hidden>●</span>
           </div>
         </header>
 
