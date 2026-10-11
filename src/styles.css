@@ -875,6 +875,17 @@ html:not([data-shell='tauri']) body {
   overflow-x: auto;
 }
 
+/* Crepe renders fenced code as a CodeMirror block rather than a `pre`, so the
+   rule above never reaches it. Same radius, so code reads as one family. The
+   block is not clipped: its language picker drops down past the bottom edge. */
+.milkdown .milkdown-code-block {
+  border-radius: 8px;
+}
+
+.milkdown .milkdown-code-block .cm-editor {
+  border-radius: 6px;
+}
+
 .milkdown .ProseMirror pre code {
   padding: 0;
   background: transparent;
