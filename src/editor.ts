@@ -15,6 +15,7 @@ import { replaceAll } from '@milkdown/kit/utils';
 import { oneDark } from '@codemirror/theme-one-dark';
 import { EditorView } from '@codemirror/view';
 import { remarkImageTitle } from './remark-image-title';
+import { ScrollAnchor } from './scroll-anchor';
 import { typoraShortcuts } from './shortcuts';
 
 /** One entry in the document outline. */
@@ -80,6 +81,8 @@ export class MarkdownEditor {
   private readonly options: MarkdownEditorOptions;
   /** Set while programmatically replacing content, to swallow the echo. */
   private replacing = false;
+  /** Keeps the view still while Crepe swaps code blocks in and out. */
+  private anchor: ScrollAnchor | undefined;
 
   constructor(options: MarkdownEditorOptions) {
     this.options = options;
@@ -140,10 +143,15 @@ export class MarkdownEditor {
       ctx.update(remarkPluginsCtx, (plugins) => [...plugins, remarkImageTitle]);
     });
     await this.crepe.create();
+
+    const scroller = this.options.root.querySelector<HTMLElement>('.milkdown');
+    const content = scroller?.querySelector<HTMLElement>('.ProseMirror');
+    if (scroller && content) this.anchor = new ScrollAnchor(scroller, content);
   }
 
   /** Tear the editor down and release its DOM. */
   async destroy(): Promise<void> {
+    this.anchor?.disconnect();
     await this.crepe.destroy();
   }
 

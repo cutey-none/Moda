@@ -17,6 +17,8 @@
  * accelerated event jumped its whole distance in one frame.
  */
 
+import { SCROLL_SHIFT_EVENT, type ScrollShiftDetail } from './scroll-anchor';
+
 /**
  * The response time of the spring that carries the scroll, in milliseconds.
  *
@@ -120,6 +122,13 @@ class Glide {
     }
   }
 
+  /** Follow a jump made to the scroller by someone else, mid-glide. */
+  shift(element: Element, delta: number): void {
+    if (element !== this.element || this.frame === undefined) return;
+    this.position += delta;
+    this.target += delta;
+  }
+
   stop(): void {
     if (this.frame !== undefined) cancelAnimationFrame(this.frame);
     this.frame = undefined;
@@ -163,6 +172,14 @@ export function installSmoothWheel(): void {
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
   const glide = new Glide();
   const classifier = new WheelClassifier();
+
+  // Scroll anchoring moves the scroller when content above the view changes
+  // height; the glide has to move with it or it would read that as the user
+  // scrolling elsewhere and stop dead.
+  window.addEventListener(SCROLL_SHIFT_EVENT, (event) => {
+    const { detail } = event as CustomEvent<ScrollShiftDetail>;
+    if (event.target instanceof Element) glide.shift(event.target, detail.delta);
+  });
 
   window.addEventListener(
     'wheel',
