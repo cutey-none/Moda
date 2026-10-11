@@ -626,8 +626,12 @@ html:not([data-shell='tauri']) body {
 /* The editor host is not a scroll container: Crepe renders `.milkdown` inside
    it, and that is what scrolls. Declaring `overflow-y` here as well would put a
    second, nested scroller in the chain and a stray scrollbar at the window
-   edge. */
-.editor {
+   edge.
+ *
+ * Scoped to the surface's own child because Crepe also gives the ProseMirror
+ * element the class `editor`: a bare `.editor` clipped the prose to the
+ * viewport and left nothing for `.milkdown` to scroll. */
+.surface > .editor {
   height: 100%;
   overflow: hidden;
 }
