@@ -46,6 +46,15 @@ const EMPTY_DOCUMENT = '';
  */
 const OUTLINE_REFRESH_DELAY_MS = 250;
 
+/**
+ * How long typing must pause before an edited document saves itself.
+ *
+ * Only documents that already have a path are saved this way: an untitled one
+ * would need a save dialog, and a dialog appearing mid-sentence is worse than
+ * waiting for the user to save.
+ */
+const AUTOSAVE_DELAY_MS = 2000;
+
 function required<T extends HTMLElement>(id: string): T {
   const element = document.getElementById(id);
   if (element === null) throw new Error(`missing element #${id}`);
@@ -99,6 +108,8 @@ export class ModaApp {
   private started = false;
   /** Pending outline rebuild, while the user is still typing. */
   private outlineTimer: number | undefined;
+  /** Pending auto-save, while the user is still typing. */
+  private autosaveTimer: number | undefined;
 
   constructor() {
     // The sidebar reports back through the same public verbs the toolbar uses,
@@ -168,6 +179,7 @@ export class ModaApp {
         this.setDirty(true);
         this.renderCounts();
         this.scheduleOutlineRefresh();
+        this.scheduleAutosave();
       },
     });
     await this.editor.create();
@@ -348,14 +360,29 @@ export class ModaApp {
     }
   }
 
-  private async writeTo(path: string): Promise<void> {
+  /** Save the open document once typing pauses, if it has somewhere to go. */
+  private scheduleAutosave(): void {
+    if (this.autosaveTimer !== undefined) window.clearTimeout(this.autosaveTimer);
+    this.autosaveTimer = window.setTimeout(() => {
+      this.autosaveTimer = undefined;
+      // A dialog may be open (save as, discard), or the document may have been
+      // saved or replaced since the edit; any of those makes this save moot.
+      if (!this.dirty || this.path === undefined || this.busy) return;
+      void this.writeTo(this.path, '已自动保存');
+    }, AUTOSAVE_DELAY_MS);
+  }
+
+  private async writeTo(path: string, savedLabel = '已保存'): Promise<void> {
     try {
       this.setState('保存中…');
-      const saved = await writeDocument(path, this.currentText());
+      const contents = this.currentText();
+      const saved = await writeDocument(path, contents);
       this.path = saved.path;
-      this.dirty = false;
+      // Typing can continue while the write is in flight. Only what was written
+      // is clean; anything typed since still needs saving.
+      this.dirty = this.currentText() !== contents;
       this.render();
-      this.setState(`已保存 ${saved.name}`);
+      this.setState(`${savedLabel} ${saved.name}`);
     } catch (error) {
       this.reportError(error);
     }
@@ -674,6 +701,7 @@ export class ModaApp {
       this.markStarted();
       this.setDirty(true);
       this.renderCounts();
+      this.scheduleAutosave();
     });
   }
 
