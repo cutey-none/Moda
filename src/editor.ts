@@ -79,8 +79,6 @@ export interface MarkdownEditorOptions {
 export class MarkdownEditor {
   private readonly crepe: Crepe;
   private readonly options: MarkdownEditorOptions;
-  /** Set while programmatically replacing content, to swallow the echo. */
-  private replacing = false;
   /** Keeps the view still while Crepe swaps code blocks in and out. */
   private anchor: ScrollAnchor | undefined;
 
@@ -119,7 +117,7 @@ export class MarkdownEditor {
       listener.markdownUpdated((_ctx, markdown, previous) => {
         // Crepe reports the initial parse as an update too; a caller that just
         // loaded that same text should not be told the document is dirty.
-        if (this.replacing || markdown === previous) return;
+        if (markdown === previous) return;
         this.options.onChange(markdown);
       });
     });
@@ -258,14 +256,25 @@ export class MarkdownEditor {
    * transaction: it goes through the editor's parser, which is configured with
    * the same remark plugins the serializer uses, so text read back out of the
    * editor round-trips.
+   *
+   * This is an edit like any other: it is undoable and reported through
+   * `onChange`. To show a different file, use {@link load}.
    */
   setMarkdown(markdown: string): void {
-    this.replacing = true;
-    try {
-      this.crepe.editor.action(replaceAll(markdown));
-    } finally {
-      this.replacing = false;
-    }
+    this.crepe.editor.action(replaceAll(markdown));
+  }
+
+  /**
+   * Show a newly opened document, without reporting it as a change.
+   *
+   * Builds a fresh editor state instead of dispatching an edit. An edit reaches
+   * the change listener, which reports on a 200ms debounce — long after any
+   * flag set around the call is cleared — so the document just opened was
+   * marked modified, autosaved, and asked about on close. A fresh state also
+   * starts a fresh undo history, so ⌘Z cannot walk back into the previous file.
+   */
+  load(markdown: string): void {
+    this.crepe.editor.action(replaceAll(markdown, true));
   }
 
   /** Focus the editor so typing starts immediately after an open. */

@@ -323,9 +323,9 @@ export class ModaApp {
     if (this.mode === 'source') {
       this.sourceArea.value = document.contents;
     } else if (this.editor !== undefined) {
-      // Reuse the live editor rather than rebuilding it: the plugins, undo
-      // stack and CodeMirror instances inside code blocks all survive.
-      this.editor.setMarkdown(document.contents);
+      // Reuse the live editor rather than rebuilding it: the plugins survive,
+      // and only the document and its undo history start afresh.
+      this.editor.load(document.contents);
     } else {
       await this.createEditor(document.contents);
     }
