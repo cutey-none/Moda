@@ -389,6 +389,33 @@ html:not([data-shell='tauri']) body {
   display: none;
 }
 
+/* The grip along the sidebar's right edge. Kept inside the sidebar: the glass
+   filter makes the sidebar its own stacking context, so anything hanging over
+   the edge would be painted under the editor and never receive the pointer. */
+.sidebar__resizer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2;
+  width: 5px;
+  cursor: col-resize;
+  outline: none;
+}
+
+.sidebar__resizer:hover,
+.sidebar__resizer:focus-visible,
+.is-resizing-sidebar .sidebar__resizer {
+  box-shadow: inset -2px 0 0 var(--accent);
+}
+
+/* While dragging, the pointer may stray over text: keep the resize cursor and
+   do not select anything. */
+.is-resizing-sidebar {
+  cursor: col-resize;
+  user-select: none;
+}
+
 .sidebar__head {
   display: flex;
   align-items: center;

@@ -362,6 +362,46 @@ try {
     JSON.stringify(toggled),
   );
 
+  // Drag the right edge with real mouse input, which is what produces the
+  // pointer events and pointer capture the grip relies on.
+  const sidebarWidth = () =>
+    cdp.eval(`Math.round(document.getElementById('sidebar').getBoundingClientRect().width)`);
+  const widthBefore = await sidebarWidth();
+  const grip = await cdp.eval(`(() => {
+    const r = document.getElementById('sidebar-resizer').getBoundingClientRect();
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+  })()`);
+  const mouse = (type, x, extra = {}) =>
+    cdp.send('Input.dispatchMouseEvent', { type, x, y: grip.y, button: 'left', ...extra });
+  await mouse('mousePressed', grip.x, { buttons: 1, clickCount: 1 });
+  for (const dx of [20, 40, 60, 80, 100]) await mouse('mouseMoved', grip.x + dx, { buttons: 1 });
+  await mouse('mouseReleased', grip.x + 100, { clickCount: 1 });
+  await sleep(100);
+  const widthDragged = await sidebarWidth();
+  record(
+    '拖动右边缘加宽侧边栏',
+    Math.abs(widthDragged - (widthBefore + 100)) <= 2,
+    JSON.stringify({ widthBefore, widthDragged }),
+  );
+
+  // Far past the limit, it stops at the maximum rather than eating the editor.
+  const grip2 = grip.x + 100;
+  await mouse('mousePressed', grip2, { buttons: 1, clickCount: 1 });
+  await mouse('mouseMoved', grip2 + 900, { buttons: 1 });
+  await mouse('mouseReleased', grip2 + 900, { clickCount: 1 });
+  await sleep(100);
+  const widthClamped = await sidebarWidth();
+  record('宽度不超过上限', widthClamped === 480, String(widthClamped));
+
+  const widthRemembered = await cdp.eval(`localStorage.getItem('moda.sidebarWidth')`);
+  record('宽度被记住', widthRemembered === '480', String(widthRemembered));
+
+  await cdp.eval(`document.getElementById('sidebar-resizer')
+    .dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))`);
+  await sleep(100);
+  const widthReset = await sidebarWidth();
+  record('双击还原默认宽度', widthReset === widthBefore, JSON.stringify({ widthBefore, widthReset }));
+
   const shot = await cdp.send('Page.captureScreenshot', { format: 'png' });
   writeFileSync(SHOT_PATH, Buffer.from(shot.data, 'base64'));
 

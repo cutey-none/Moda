@@ -10,6 +10,7 @@ import './styles.css';
 import { MarkdownEditor } from './editor';
 import { Outline } from './outline';
 import { Sidebar } from './sidebar';
+import { installSidebarResize } from './sidebar-resize';
 import {
   confirmDiscard as askDiscard,
   describeFileError,
@@ -125,6 +126,10 @@ export class ModaApp {
           this.setState(message);
         },
       },
+    );
+    installSidebarResize(
+      required<HTMLElement>('sidebar'),
+      required<HTMLElement>('sidebar-resizer'),
     );
 
     this.outline = new Outline(required<HTMLElement>('sidebar-outline'), {
