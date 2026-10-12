@@ -331,6 +331,7 @@ export class ModaApp {
     }
     this.dirty = false;
     this.render();
+    await this.showFolderOf(document.path);
     this.sidebar.setActivePath(document.path);
     // A different document has different headings; the outline must not keep
     // showing the previous one's.
@@ -588,6 +589,23 @@ export class ModaApp {
       this.syncSidebarTitle();
     }
     return loaded;
+  }
+
+  /**
+   * Make the file tree show the folder a document lives in.
+   *
+   * A file opened from Finder or the open dialog brings its folder along, the
+   * way Typora does, so its neighbours are one click away. A file already
+   * inside the workspace — one picked from the tree itself — leaves the tree
+   * alone, or clicking into a subfolder would narrow the workspace each time.
+   * Whether the sidebar is showing is the user's call and is left as it is.
+   */
+  private async showFolderOf(path: string): Promise<void> {
+    const root = this.sidebar.rootPath;
+    if (root !== undefined && path.startsWith(`${root}/`)) return;
+    const folder = path.slice(0, path.lastIndexOf('/'));
+    if (folder === '') return;
+    if (await this.sidebar.loadFolder(folder)) this.syncSidebarTitle();
   }
 
   /** Re-read the workspace folder. */

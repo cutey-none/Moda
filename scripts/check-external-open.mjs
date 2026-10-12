@@ -27,6 +27,24 @@ const EDGE = '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge';
 /** The document the stub claims arrived with the launch. */
 const EXTERNAL_PATH = '/tmp/moda-external/note.md';
 const EXTERNAL_BODY = '# 外部打开的文档\n\n这一段必须出现在编辑器里。\n';
+/** The folder the document sits in, which the sidebar should show. */
+const EXTERNAL_DIR = '/tmp/moda-external';
+const EXTERNAL_TREE = {
+  path: EXTERNAL_DIR,
+  name: 'moda-external',
+  truncated: false,
+  entries: [
+    {
+      name: 'note.md',
+      path: EXTERNAL_PATH,
+      isDirectory: false,
+      isMarkdown: true,
+      size: 0,
+      modifiedMs: 0,
+      children: [],
+    },
+  ],
+};
 
 const edge = spawn(
   EDGE,
@@ -137,6 +155,7 @@ try {
               modifiedMs: 0,
             };
           }
+          if (cmd === 'read_directory_tree') return ${JSON.stringify(EXTERNAL_TREE)};
           if (cmd === 'file_exists') return true;
           if (cmd === 'set_window_title') return null;
           return null;
@@ -163,6 +182,12 @@ try {
       chars: document.getElementById('stat-chars').textContent,
       status: document.getElementById('stat-state').textContent,
       emptyOverlayHidden: document.getElementById('empty').hidden,
+      dirtyShown: !document.getElementById('doc-dirty').hidden,
+      sidebarTitle: document.getElementById('sidebar-title').textContent,
+      activeRow: document.querySelector('.tree__row--active')?.textContent ?? null,
+      treeRequests: window.__modaTest.calls
+        .filter((c) => c.cmd === 'read_directory_tree')
+        .map((c) => c.args.path),
       drained: window.__modaTest.drained,
       calls: window.__modaTest.calls.map((c) => c.cmd),
     };
@@ -196,6 +221,16 @@ try {
     state.chars,
   );
   record('欢迎遮罩已隐藏', state.emptyOverlayHidden === true);
+  // Opening a file is not editing it: a dirty marker would make closing the
+  // window ask about changes nobody made.
+  record('刚打开的文档没有修改标记', state.dirtyShown === false);
+  record(
+    '侧边栏读取了文档所在的文件夹',
+    state.treeRequests.includes(EXTERNAL_DIR),
+    JSON.stringify(state.treeRequests),
+  );
+  record('侧边栏标题为该文件夹名', state.sidebarTitle === 'moda-external', state.sidebarTitle);
+  record('文件树标出了当前文档', (state.activeRow ?? '').includes('note.md'), String(state.activeRow));
 
   const shot = await cdp.send('Page.captureScreenshot', { format: 'png' });
   writeFileSync(SHOT_PATH, Buffer.from(shot.data, 'base64'));

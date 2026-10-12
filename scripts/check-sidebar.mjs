@@ -306,12 +306,14 @@ try {
       activeLabels: [...document.querySelectorAll('#sidebar-tree .tree__row--active .tree__label')]
         .map((el) => el.textContent),
       dirtyShown: !document.getElementById('doc-dirty').hidden,
+      treeRequests: window.__modaTest.calls.filter((c) => c.cmd === 'read_directory_tree').length,
     };
   })()`);
   // The editor was already live, so this is the open that swaps its document.
   // The swap once reached the change listener 200ms late and marked the file
   // modified; 900ms is well past that.
   record('打开的文件没有修改标记', opened.dirtyShown === false);
+  record('打开工作区内的文件不重新读取文件夹', opened.treeRequests === 0, String(opened.treeRequests));
   record(
     '点击文件请求了正确的路径',
     opened.readPath === '/fixture/notes/readme.md',
