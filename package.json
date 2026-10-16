@@ -20,6 +20,7 @@
     "check:menu": "node scripts/check-menu.mjs",
     "check:outline": "node scripts/check-outline.mjs",
     "check:find": "node scripts/check-find.mjs",
+    "check:updater": "node scripts/check-updater.mjs",
     "check:autosave": "node scripts/check-autosave.mjs",
     "check:ipc-contract": "node scripts/check-ipc-contract.mjs",
     "check:bundle": "scripts/check-macos-bundle.sh",
@@ -34,6 +35,8 @@
     "@tauri-apps/api": "^2",
     "@tauri-apps/plugin-dialog": "^2.8.1",
     "@tauri-apps/plugin-opener": "^2",
+    "@tauri-apps/plugin-process": "^2.4.0",
+    "@tauri-apps/plugin-updater": "^2.14.0",
     "unist-util-visit": "^5.1.0"
   },
   "devDependencies": {

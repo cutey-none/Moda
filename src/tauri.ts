@@ -138,7 +138,8 @@ export type MenuCommand =
   | 'find'
   | 'find-next'
   | 'find-previous'
-  | 'about';
+  | 'about'
+  | 'check-for-updates';
 
 /**
  * Subscribe to native menu choices.
@@ -311,3 +312,66 @@ export async function guardWindowClose(
     return false;
   }
 }
+
+/** A newer release the updater found. */
+export interface AvailableUpdate {
+  version: string;
+  /** Release notes; empty when the release has none. */
+  notes: string;
+  /**
+   * Download, verify and install the update over the running app.
+   *
+   * @param onProgress - called as bytes arrive, with the fraction done (0–1), or
+   *   undefined when the server did not say how big the download is.
+   */
+  install(onProgress: (fraction: number | undefined) => void): Promise<void>;
+}
+
+/** What the update flow needs from the host. */
+export interface UpdateBackend {
+  /** The running app's version, e.g. "0.0.3". */
+  currentVersion(): Promise<string>;
+  /** Ask the update server; null when this is already the newest release. */
+  check(): Promise<AvailableUpdate | null>;
+  /** Restart into the installed update. */
+  relaunch(): Promise<void>;
+}
+
+/**
+ * The real backend: Tauri's updater and process plugins.
+ *
+ * Imported lazily, like the event API above, so a plain browser session never
+ * loads them.
+ */
+export const tauriUpdateBackend: UpdateBackend = {
+  async currentVersion() {
+    const { getVersion } = await import('@tauri-apps/api/app');
+    return getVersion();
+  },
+  async check() {
+    const { check } = await import('@tauri-apps/plugin-updater');
+    const update = await check();
+    if (update === null) return null;
+    return {
+      version: update.version,
+      notes: update.body ?? '',
+      async install(onProgress) {
+        let total: number | undefined;
+        let received = 0;
+        await update.downloadAndInstall((event) => {
+          if (event.event === 'Started') {
+            total = event.data.contentLength;
+            onProgress(total ? 0 : undefined);
+          } else if (event.event === 'Progress') {
+            received += event.data.chunkLength;
+            onProgress(total ? Math.min(received / total, 1) : undefined);
+          }
+        });
+      },
+    };
+  },
+  async relaunch() {
+    const { relaunch } = await import('@tauri-apps/plugin-process');
+    await relaunch();
+  },
+};
