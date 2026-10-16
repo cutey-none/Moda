@@ -135,6 +135,16 @@
             <button class="btn btn--icon findbar__close" title="关闭 (esc)" aria-label="关闭">✕</button>
           </div>
 
+          <!-- The update bar. Only "检查更新…" in the app menu ever shows it. -->
+          <div class="updatebar" id="updatebar" role="status" aria-live="polite" hidden>
+            <div class="updatebar__body">
+              <span class="updatebar__text"></span>
+              <span class="updatebar__notes"></span>
+            </div>
+            <button class="btn btn--primary updatebar__primary"></button>
+            <button class="btn updatebar__secondary"></button>
+          </div>
+
           <!-- Shown when no document is open yet. -->
           <div class="empty" id="empty">
             <div class="empty__inner">

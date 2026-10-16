@@ -6,6 +6,8 @@
  * behind {@link MarkdownEditor}; the disk is behind the module in `tauri.ts`.
  */
 
+import { isTauri } from '@tauri-apps/api/core';
+
 import './styles.css';
 import { MarkdownEditor } from './editor';
 import { FindBar, TextareaFinder, type Finder } from './find-bar';
@@ -25,11 +27,13 @@ import {
   readDocument,
   setWindowTitle,
   takePendingOpenFiles,
+  tauriUpdateBackend,
   toFileError,
   writeDocument,
   type Document,
   type MenuCommand,
 } from './tauri';
+import { UpdateFlow } from './updater';
 
 /** Which surface the document is being edited on. */
 type ViewMode = 'wysiwyg' | 'source';
@@ -90,6 +94,7 @@ export class ModaApp {
   private readonly sidebar: Sidebar;
   private readonly outline: Outline;
   private readonly findBar: FindBar;
+  private readonly updateFlow: UpdateFlow;
   private readonly sourceFinder: TextareaFinder;
   /** Which sidebar panel is showing. */
   private sidebarView: 'files' | 'outline' = 'files';
@@ -151,6 +156,13 @@ export class ModaApp {
         this.focusActiveSurface();
       },
     });
+
+    // Only "检查更新…" drives this. Outside Tauri there is no updater, so the
+    // backend is left out and the menu command does nothing.
+    this.updateFlow = new UpdateFlow(required<HTMLElement>('updatebar'), {
+      backend: isTauri() ? tauriUpdateBackend : undefined,
+      confirmDiscard: () => this.confirmDiscard(),
+    });
   }
 
   async start(): Promise<void> {
@@ -181,6 +193,11 @@ export class ModaApp {
   /** The editor instance, for the automated checks. */
   get markdownEditor(): MarkdownEditor | undefined {
     return this.editor;
+  }
+
+  /** The update flow, for `scripts/check-updater.mjs`. */
+  get updates(): UpdateFlow {
+    return this.updateFlow;
   }
 
   // ------------------------------------------------------------------ editor
@@ -574,6 +591,9 @@ export class ModaApp {
         // The native About panel already showed the version; this is the status
         // line's nod to the same information.
         this.setState(`Moda — 所见即所得的 Markdown 编辑器`);
+        return;
+      case 'check-for-updates':
+        void this.updateFlow.checkForUpdates();
         return;
     }
   }
