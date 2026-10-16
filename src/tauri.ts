@@ -135,6 +135,9 @@ export type MenuCommand =
   | 'toggle-sidebar'
   | 'show-outline'
   | 'insert-link'
+  | 'find'
+  | 'find-next'
+  | 'find-previous'
   | 'about';
 
 /**

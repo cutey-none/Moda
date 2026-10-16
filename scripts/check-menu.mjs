@@ -233,6 +233,15 @@ try {
     `${callsBefore} -> ${callsAfter}`,
   );
 
+  // find must open the find bar with the keyboard in its field.
+  await deliver('find');
+  const findBar = await cdp.eval(`(() => ({
+    hidden: document.getElementById('findbar').hidden,
+    focused: document.activeElement === document.querySelector('.findbar__input'),
+  }))()`);
+  record('find 打开了查找栏', !findBar.hidden && findBar.focused, JSON.stringify(findBar));
+  await cdp.eval(`document.querySelector('.findbar__close').click()`);
+
   // about must report something in the status line rather than doing nothing.
   await deliver('about');
   const aboutStatus = await cdp.eval(

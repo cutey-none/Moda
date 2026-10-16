@@ -561,6 +561,15 @@ export class ModaApp {
       case 'insert-link':
         this.insertLink();
         return;
+      case 'find':
+        this.find();
+        return;
+      case 'find-next':
+        this.findStep(1);
+        return;
+      case 'find-previous':
+        this.findStep(-1);
+        return;
       case 'about':
         // The native About panel already showed the version; this is the status
         // line's nod to the same information.

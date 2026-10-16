@@ -39,6 +39,9 @@ pub enum MenuCommand {
     ToggleSidebar,
     ShowOutline,
     InsertLink,
+    Find,
+    FindNext,
+    FindPrevious,
     About,
 }
 
@@ -54,7 +57,7 @@ pub struct MenuPayload {
 /// One table drives both the menu construction and the id-to-command lookup, so
 /// the two cannot disagree. `None` for the accelerator means the item has none —
 /// a menu entry is still useful as a reminder that the feature exists.
-const COMMANDS: [(&str, &str, Option<&str>, MenuCommand); 10] = [
+const COMMANDS: [(&str, &str, Option<&str>, MenuCommand); 13] = [
     ("new-document", "新建", Some("CmdOrCtrl+N"), MenuCommand::NewDocument),
     ("open-document", "打开…", Some("CmdOrCtrl+O"), MenuCommand::OpenDocument),
     (
@@ -71,6 +74,14 @@ const COMMANDS: [(&str, &str, Option<&str>, MenuCommand); 10] = [
         "插入链接…",
         Some("CmdOrCtrl+K"),
         MenuCommand::InsertLink,
+    ),
+    ("find", "查找…", Some("CmdOrCtrl+F"), MenuCommand::Find),
+    ("find-next", "查找下一个", Some("CmdOrCtrl+G"), MenuCommand::FindNext),
+    (
+        "find-previous",
+        "查找上一个",
+        Some("CmdOrCtrl+Shift+G"),
+        MenuCommand::FindPrevious,
     ),
     (
         "toggle-source",
@@ -166,6 +177,10 @@ pub fn build<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {
         .select_all()
         .separator()
         .item(&item(app, "insert-link")?)
+        .separator()
+        .item(&item(app, "find")?)
+        .item(&item(app, "find-next")?)
+        .item(&item(app, "find-previous")?)
         .build()?;
 
     let view_menu = SubmenuBuilder::new(app, "视图")
@@ -251,6 +266,9 @@ mod tests {
             (MenuCommand::ToggleSidebar, "toggle-sidebar"),
             (MenuCommand::ShowOutline, "show-outline"),
             (MenuCommand::InsertLink, "insert-link"),
+            (MenuCommand::Find, "find"),
+            (MenuCommand::FindNext, "find-next"),
+            (MenuCommand::FindPrevious, "find-previous"),
             (MenuCommand::About, "about"),
         ];
         for (command, expected) in cases {
