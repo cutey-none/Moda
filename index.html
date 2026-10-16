@@ -119,6 +119,22 @@
             hidden
           ></textarea>
 
+          <!-- The find bar (⌘F). Searches whichever surface is showing. -->
+          <div class="findbar" id="findbar" role="search" hidden>
+            <input
+              class="findbar__input"
+              type="text"
+              placeholder="查找"
+              aria-label="查找"
+              spellcheck="false"
+              autocomplete="off"
+            />
+            <span class="findbar__count" aria-live="polite"></span>
+            <button class="btn btn--icon findbar__prev" title="上一个 (⇧↩)" aria-label="上一个">↑</button>
+            <button class="btn btn--icon findbar__next" title="下一个 (↩)" aria-label="下一个">↓</button>
+            <button class="btn btn--icon findbar__close" title="关闭 (esc)" aria-label="关闭">✕</button>
+          </div>
+
           <!-- Shown when no document is open yet. -->
           <div class="empty" id="empty">
             <div class="empty__inner">

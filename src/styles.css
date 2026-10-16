@@ -703,6 +703,80 @@ html:not([data-shell='tauri']) body {
   display: none;
 }
 
+/* ---------------------------------------------------------------- find bar */
+
+/* Floats over the top-right of the surface, on the same glass as the chrome, so
+   it reads as part of the window rather than part of the document. Above the
+   welcome overlay too, though the two are rarely both up. */
+.findbar {
+  position: absolute;
+  top: 10px;
+  right: 16px;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 4px 4px 10px;
+  border: 1px solid var(--chrome-border);
+  border-radius: 999px;
+  background: var(--glass-tint-raised);
+  -webkit-backdrop-filter: var(--glass-filter);
+  backdrop-filter: var(--glass-filter);
+  box-shadow: var(--glass-shadow);
+  font-family: var(--font-ui);
+}
+
+.findbar[hidden] {
+  display: none;
+}
+
+.findbar__input {
+  width: 200px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--chrome-fg);
+  background: transparent;
+  border: 0;
+  outline: none;
+}
+
+.findbar__count {
+  min-width: 3em;
+  padding: 0 6px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  color: var(--chrome-fg-dim);
+}
+
+.findbar--missing .findbar__count {
+  color: #d14343;
+}
+
+.findbar .btn {
+  padding: 2px 8px;
+}
+
+/* Matches in the rendered document, painted by the find plugin in `find.ts`. */
+.find-match {
+  background: rgb(255 214 0 / 0.38);
+  border-radius: 2px;
+}
+
+.find-match--current {
+  background: rgb(255 150 0 / 0.7);
+}
+
+@media (prefers-color-scheme: dark) {
+  .find-match {
+    background: rgb(255 214 0 / 0.26);
+  }
+
+  .find-match--current {
+    background: rgb(255 150 0 / 0.55);
+  }
+}
+
 /* ------------------------------------------------------------- empty state */
 
 /* The welcome overlay covers the editor area, so it must not intercept the

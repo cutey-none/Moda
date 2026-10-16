@@ -8,6 +8,7 @@
 
 import './styles.css';
 import { MarkdownEditor } from './editor';
+import { FindBar, TextareaFinder, type Finder } from './find-bar';
 import { Outline } from './outline';
 import { Sidebar } from './sidebar';
 import { installSidebarResize } from './sidebar-resize';
@@ -88,6 +89,8 @@ export class ModaApp {
   private editor: MarkdownEditor | undefined;
   private readonly sidebar: Sidebar;
   private readonly outline: Outline;
+  private readonly findBar: FindBar;
+  private readonly sourceFinder: TextareaFinder;
   /** Which sidebar panel is showing. */
   private sidebarView: 'files' | 'outline' = 'files';
 
@@ -138,6 +141,14 @@ export class ModaApp {
         // The click's own heading becomes the marked one straight away, rather
         // than waiting for the caret to move.
         this.outline.setActive(pos);
+      },
+    });
+
+    this.sourceFinder = new TextareaFinder(this.sourceArea);
+    this.findBar = new FindBar(required<HTMLElement>('findbar'), {
+      finder: () => this.activeFinder(),
+      onClose: () => {
+        this.focusActiveSurface();
       },
     });
   }
@@ -284,6 +295,7 @@ export class ModaApp {
     await this.createEditor(EMPTY_DOCUMENT);
     this.dirty = false;
     this.render();
+    this.findBar.refresh();
     this.setState('新建文档');
     this.focusActiveSurface();
   }
@@ -341,6 +353,7 @@ export class ModaApp {
     // A different document has different headings; the outline must not keep
     // showing the previous one's.
     this.refreshOutline();
+    this.findBar.refresh();
     this.focusActiveSurface();
   }
 
@@ -420,6 +433,7 @@ export class ModaApp {
       this.outline.setEnabled(false, '源码模式下无法跳转');
       this.render();
       this.sourceArea.focus();
+      this.findBar.refresh();
       this.setState('源码模式');
       return;
     }
@@ -432,7 +446,31 @@ export class ModaApp {
     this.outline.setEnabled(true);
     this.render();
     this.focusActiveSurface();
+    this.findBar.refresh();
     this.setState('所见即所得');
+  }
+
+  // -------------------------------------------------------------------- find
+
+  /** Open the find bar (⌘F). */
+  find(): void {
+    this.findBar.open();
+  }
+
+  /** Move to the next match (⌘G), or the previous one (⇧⌘G). */
+  findStep(step: 1 | -1): void {
+    this.findBar.step(step);
+  }
+
+  /** The surface the find bar searches: whichever one is showing. */
+  private activeFinder(): Finder | undefined {
+    if (this.mode === 'source') return this.sourceFinder;
+    const editor = this.editor;
+    if (editor === undefined) return undefined;
+    return {
+      find: (query) => editor.find(query),
+      step: (step) => editor.findStep(step),
+    };
   }
 
   private focusActiveSurface(): void {
@@ -776,8 +814,21 @@ export class ModaApp {
 
   private bindShortcuts(): void {
     window.addEventListener('keydown', (event) => {
-      if (!event.metaKey) return;
       const key = event.key.toLowerCase();
+      // ⌃F as well as ⌘F, for hands used to it from other platforms. It gives up
+      // the Emacs-style "forward one character", which ← → already cover.
+      if (key === 'f' && !event.shiftKey && !event.altKey && (event.metaKey || event.ctrlKey)) {
+        event.preventDefault();
+        this.find();
+        return;
+      }
+      if (!event.metaKey) return;
+
+      if (key === 'g') {
+        event.preventDefault();
+        this.findStep(event.shiftKey ? -1 : 1);
+        return;
+      }
 
       // Shift+⌘S must be checked before ⌘S, and ⇧⌘E is checked before the
       // plain-`e` bindings Milkdown owns (inline code).
