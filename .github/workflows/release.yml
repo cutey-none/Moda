@@ -57,6 +57,9 @@ jobs:
           done
           echo "Version $tag agrees in package.json and tauri.conf.json."
 
+      - name: Script tests
+        run: node --test scripts/*.test.mjs
+
   build:
     name: Build (${{ matrix.name }})
     needs: validate
@@ -109,15 +112,39 @@ jobs:
         run: cargo test --manifest-path src-tauri/Cargo.toml
 
       # No certificate and no notarisation: the bundle comes out ad-hoc signed.
+      # Updater artifacts are switched on here rather than in tauri.conf.json:
+      # with them on, `tauri build` refuses to run without the private key, and
+      # a local build has no key. In CI a missing secret therefore fails the
+      # release instead of publishing one that installed copies cannot update to.
       - name: Build the bundle
-        run: pnpm tauri build --target ${{ matrix.target }}
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: >-
+          pnpm tauri build --target ${{ matrix.target }}
+          --config '{"bundle":{"createUpdaterArtifacts":true}}'
 
       - name: The bundle is ad-hoc signed rather than damaged
         run: ./scripts/check-macos-bundle.sh "src-tauri/target/${{ matrix.target }}/release/bundle/macos/Moda.app"
 
+      # The updater fetches one archive per architecture from the same release,
+      # so the generic Moda.app.tar.gz is renamed after its architecture.
+      - name: Collect the update package
+        run: |
+          src="src-tauri/target/${{ matrix.target }}/release/bundle/macos"
+          dest="src-tauri/target/${{ matrix.target }}/release/bundle/dmg"
+          for file in Moda.app.tar.gz Moda.app.tar.gz.sig; do
+            if [ ! -f "$src/$file" ]; then
+              echo "::error::$src/$file was not built — are the TAURI_SIGNING_PRIVATE_KEY secrets set?"
+              exit 1
+            fi
+          done
+          cp "$src/Moda.app.tar.gz" "$dest/Moda_${{ matrix.arch }}.app.tar.gz"
+          cp "$src/Moda.app.tar.gz.sig" "$dest/Moda_${{ matrix.arch }}.app.tar.gz.sig"
+
       # The disk image name is derived from the architecture, so assert it: a
       # silent rename would publish a file whose name contradicts its contents.
-      - name: Checksum the disk image
+      - name: Checksum the downloads
         working-directory: src-tauri/target/${{ matrix.target }}/release/bundle/dmg
         run: |
           shopt -s nullglob
@@ -134,7 +161,7 @@ jobs:
               exit 1
               ;;
           esac
-          shasum -a 256 "${images[0]}" > "SHA256SUMS-${{ matrix.name }}.txt"
+          shasum -a 256 "${images[0]}" "Moda_${{ matrix.arch }}.app.tar.gz" > "SHA256SUMS-${{ matrix.name }}.txt"
           cat "SHA256SUMS-${{ matrix.name }}.txt"
 
       - uses: actions/upload-artifact@v4
@@ -145,6 +172,8 @@ jobs:
           path: |
             src-tauri/target/${{ matrix.target }}/release/bundle/dmg/*.dmg
             src-tauri/target/${{ matrix.target }}/release/bundle/dmg/SHA256SUMS-*.txt
+            src-tauri/target/${{ matrix.target }}/release/bundle/dmg/Moda_*.app.tar.gz
+            src-tauri/target/${{ matrix.target }}/release/bundle/dmg/Moda_*.app.tar.gz.sig
 
   release:
     name: Publish the release
@@ -156,6 +185,9 @@ jobs:
       contents: write
       actions: read
     steps:
+      # For scripts/make-update-manifest.mjs.
+      - uses: actions/checkout@v7
+
       - uses: actions/download-artifact@v4
         with:
           path: dist
@@ -167,6 +199,17 @@ jobs:
           cat SHA256SUMS-*.txt | LC_ALL=C sort -k2 > SHA256SUMS.txt
           rm -f SHA256SUMS-*.txt
           cat SHA256SUMS.txt
+
+      # What installed copies read. `releases/latest/download/latest.json` never
+      # resolves to a pre-release, so a `-rc` tag publishes one that nobody is
+      # offered.
+      - name: Write the update manifest
+        run: >-
+          node scripts/make-update-manifest.mjs
+          --version "${GITHUB_REF_NAME#v}"
+          --dir dist
+          --base-url "https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}"
+          --out dist/latest.json
 
       # Written here rather than by hand so every release carries the same
       # instructions, in the words the README uses.
