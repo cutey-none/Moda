@@ -14,6 +14,7 @@ import { TextSelection } from '@milkdown/kit/prose/state';
 import { replaceAll } from '@milkdown/kit/utils';
 import { oneDark } from '@codemirror/theme-one-dark';
 import { EditorView } from '@codemirror/view';
+import { findKey, findPlugin, findState } from './find';
 import { remarkImageTitle } from './remark-image-title';
 import { ScrollAnchor } from './scroll-anchor';
 import { typoraShortcuts } from './shortcuts';
@@ -65,6 +66,13 @@ const ENABLED_FEATURES: Partial<Record<CrepeFeature, boolean>> = {
   [CrepeFeature.TopBar]: false,
   [CrepeFeature.AI]: false,
 };
+
+/** Where a find stands: how many matches, and which one is current. */
+export interface FindResult {
+  count: number;
+  /** Zero-based index of the current match, or -1 when there are none. */
+  current: number;
+}
 
 export interface MarkdownEditorOptions {
   /** Element Crepe mounts into. */
@@ -131,12 +139,14 @@ export class MarkdownEditor {
    * editor before `create()` runs the plugin list.
    *
    * - `typoraShortcuts` adds the app's key bindings.
+   * - `findPlugin` highlights the matches of a find.
    * - `remarkImageTitle` normalises image nodes in the markdown AST. Without it
    *   every titleless image throws during parsing and is silently dropped — see
    *   the plugin's own module for the details.
    */
   async create(): Promise<void> {
     this.crepe.editor.use(typoraShortcuts);
+    this.crepe.editor.use(findPlugin);
     this.crepe.editor.config((ctx) => {
       ctx.update(remarkPluginsCtx, (plugins) => [...plugins, remarkImageTitle]);
     });
@@ -275,6 +285,43 @@ export class MarkdownEditor {
    */
   load(markdown: string): void {
     this.crepe.editor.action(replaceAll(markdown, true));
+  }
+
+  /**
+   * Highlight every match of `query`, and select the first one.
+   *
+   * An empty query clears the highlights. Focus is left where it is, so the
+   * find field keeps the keyboard while the user types into it.
+   */
+  find(query: string): FindResult {
+    return this.dispatchFind({ query });
+  }
+
+  /**
+   * Move to the next match, or the previous one when `step` is negative,
+   * wrapping at either end.
+   */
+  findStep(step: 1 | -1): FindResult {
+    const { matches, current } = this.inspect((ctx) => findState(ctx.get(editorViewCtx).state));
+    if (matches.length === 0) return { count: 0, current: -1 };
+    const next = (current + step + matches.length) % matches.length;
+    return this.dispatchFind({ current: next });
+  }
+
+  private dispatchFind(meta: { query: string } | { current: number }): FindResult {
+    return this.crepe.editor.action((ctx) => {
+      const view = ctx.get(editorViewCtx);
+      view.dispatch(view.state.tr.setMeta(findKey, meta));
+      const { matches, current } = findState(view.state);
+      const match = matches[current];
+      if (match !== undefined) {
+        // Selecting the match is what makes closing the find bar land on it,
+        // ready to be typed over.
+        const selection = TextSelection.create(view.state.doc, match.from, match.to);
+        view.dispatch(view.state.tr.setSelection(selection).scrollIntoView());
+      }
+      return { count: matches.length, current };
+    });
   }
 
   /** Focus the editor so typing starts immediately after an open. */
