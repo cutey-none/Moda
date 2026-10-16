@@ -129,6 +129,8 @@ are discoverable without reading this table.
 | Toggle sidebar | `⇧⌘E` |
 | Show outline | `⇧⌘U` |
 | Open folder | `⇧⌘F` |
+| Find | `⌘F` (or `⌃F`) |
+| Find next / previous | `⌘G` / `⇧⌘G` (`↩` / `⇧↩` in the find field) |
 
 Markdown has no underline, so `⌘U` is treated as italic. `⌘K` asks for the URL
 before applying the link, since markdown links need a destination. Milkdown's own
@@ -145,7 +147,7 @@ Not implemented yet:
 - Image paste/drag-and-drop that copies the asset next to the document
 - A menu-bar (native macOS) menu, so the shortcuts are discoverable without the
   README
-- Find and replace
+- Replace (find is done: `⌘F`)
 - Preferences, custom themes, and user stylesheets
 - Mermaid diagrams
 - Typewriter and focus modes
@@ -237,6 +239,7 @@ pnpm check:sidebar         # the file tree renders, expands, and opens files
 pnpm check:external-open   # a document from outside opens *and renders*
 pnpm check:menu            # native menu choices run their commands
 pnpm check:outline         # the outline lists headings and jumps to them
+pnpm check:find            # ⌘F finds and highlights text in both modes
 pnpm check:ipc-contract    # every command gets the arguments its Rust side declares
 ```
 

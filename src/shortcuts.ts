@@ -105,6 +105,8 @@ export const shortcutReference: ReadonlyArray<{ keys: string; action: string }> 
   { keys: '⌘I / ⌘U', action: '斜体' },
   { keys: '⌘` / ⌘E', action: '行内代码' },
   { keys: '⌘K', action: '插入链接' },
+  { keys: '⌘F / ⌃F', action: '查找' },
+  { keys: '⌘G / ⇧⌘G', action: '查找下一个 / 上一个' },
   { keys: '⌘1 – ⌘6', action: '一至六级标题' },
   { keys: '⌘0', action: '正文' },
   { keys: '⌘⇧C', action: '代码块' },
