@@ -65,6 +65,11 @@ pub fn run() {
     builder
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        // In-app updates. Both are driven from the webview, and only when the user
+        // chooses "检查更新…": the updater downloads and verifies the new bundle,
+        // the process plugin restarts into it.
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         // Paths that arrive before the frontend is listening wait here.
         .manage(PendingOpenFiles::default())
         .invoke_handler(tauri::generate_handler![

@@ -27,6 +27,14 @@
       "csp": null
     }
   },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDU5MDM0ODc0Rjg2NUUyNUEKUldSYTRtWDRkRWdEV2VWU0x5MWlsUmdXck03TGJESm1LbEs2TEVuMVRQUk5DaG4yZks1Q2pHRW0K",
+      "endpoints": [
+        "https://github.com/cutey-none/Moda/releases/latest/download/latest.json"
+      ]
+    }
+  },
   "bundle": {
     "active": true,
     "targets": "all",

@@ -21,6 +21,12 @@ tauri-build = { version = "2", features = [] }
 tauri = { version = "2", features = [] }
 tauri-plugin-opener = "2"
 tauri-plugin-dialog = "2"
+# Default features minus `zip`: that one only serves Windows installers, and
+# every published `zip` 4.x is yanked, so leaving it on makes the dependency
+# unresolvable. macOS updates are .tar.gz, handled by `tar` and `flate2`, which
+# the plugin always pulls in on macOS.
+tauri-plugin-updater = { version = "2.14", default-features = false, features = ["rustls-tls", "system-proxy"] }
+tauri-plugin-process = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tauri-plugin-single-instance = "2.5.2"
