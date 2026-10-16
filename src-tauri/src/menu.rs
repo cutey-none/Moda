@@ -43,6 +43,7 @@ pub enum MenuCommand {
     FindNext,
     FindPrevious,
     About,
+    CheckForUpdates,
 }
 
 /// The payload of [`MENU_EVENT`].
@@ -111,6 +112,9 @@ pub fn command_for_id(id: &str) -> Option<MenuCommand> {
     if id == "about-moda" {
         return Some(MenuCommand::About);
     }
+    if id == "check-for-updates" {
+        return Some(MenuCommand::CheckForUpdates);
+    }
     COMMANDS
         .iter()
         .find(|(menu_id, ..)| *menu_id == id)
@@ -135,6 +139,11 @@ pub fn handle_event<R: Runtime>(app: &AppHandle<R>, id: &str) {
 /// submenu is what a menu bar is made of — `MenuBuilder::build` returns a
 /// `Menu<R>`, which cannot be inserted into another menu.
 pub fn build<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {
+    // "检查更新…" sits under About, where a Mac user looks for it. It is the only
+    // way Moda ever contacts the update server: there is no check on launch.
+    let check_for_updates =
+        MenuItemBuilder::with_id("check-for-updates", "检查更新…").build(app)?;
+
     let app_menu = SubmenuBuilder::new(app, "Moda")
         .about(Some(AboutMetadata {
             name: Some("Moda".to_string()),
@@ -142,6 +151,7 @@ pub fn build<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {
             comments: Some("所见即所得的 Markdown 编辑器".to_string()),
             ..Default::default()
         }))
+        .item(&check_for_updates)
         .separator()
         .services()
         .separator()
@@ -254,6 +264,16 @@ mod tests {
     }
 
     #[test]
+    fn check_for_updates_has_its_own_id() {
+        // It lives in the app menu rather than in COMMANDS' document menus, so
+        // it is mapped separately — and must still be found.
+        assert_eq!(
+            command_for_id("check-for-updates"),
+            Some(MenuCommand::CheckForUpdates)
+        );
+    }
+
+    #[test]
     fn commands_serialize_to_the_names_the_frontend_switches_on() {
         let cases = [
             (MenuCommand::NewDocument, "new-document"),
@@ -270,6 +290,7 @@ mod tests {
             (MenuCommand::FindNext, "find-next"),
             (MenuCommand::FindPrevious, "find-previous"),
             (MenuCommand::About, "about"),
+            (MenuCommand::CheckForUpdates, "check-for-updates"),
         ];
         for (command, expected) in cases {
             let json = serde_json::to_value(MenuPayload { command }).expect("serialize");
