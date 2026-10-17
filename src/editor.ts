@@ -14,6 +14,7 @@ import { TextSelection } from '@milkdown/kit/prose/state';
 import { replaceAll } from '@milkdown/kit/utils';
 import { oneDark } from '@codemirror/theme-one-dark';
 import { EditorView } from '@codemirror/view';
+import { renderDiagramPreview } from './diagrams';
 import { findKey, findPlugin, findState } from './find';
 import { remarkImageTitle } from './remark-image-title';
 import { ScrollAnchor } from './scroll-anchor';
@@ -117,6 +118,13 @@ export class MarkdownEditor {
           theme: window.matchMedia('(prefers-color-scheme: dark)').matches
             ? oneDark
             : EditorView.baseTheme({}),
+          // ```mermaid blocks show their diagram under the source. Other
+          // languages fall through: the Latex feature wraps this hook and
+          // handles its own blocks before reaching it.
+          renderPreview: renderDiagramPreview,
+          previewLabel: '预览',
+          previewLoading: '渲染中…',
+          previewToggleText: (previewOnly) => (previewOnly ? '编辑' : '隐藏源码'),
         },
       },
     });

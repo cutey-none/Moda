@@ -827,6 +827,25 @@ html:not([data-shell='tauri']) body {
   }
 }
 
+/* ----------------------------------------------------------------- diagrams */
+
+/* A diagram is drawn at its natural size, and shrinks to fit a narrow window
+   rather than overflowing the column. */
+.milkdown-code-block .preview svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Mermaid's own complaint, kept quiet: the source above is still the document,
+   and a half-typed diagram is a normal state, not an alarm. */
+.milkdown-code-block .preview .diagram-error {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  white-space: pre-wrap;
+  color: var(--chrome-fg-dim);
+}
+
 /* ------------------------------------------------------------- empty state */
 
 /* The welcome overlay covers the editor area, so it must not intercept the
