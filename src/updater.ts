@@ -27,6 +27,8 @@ export interface UpdateFlowOptions {
   backend: UpdateBackend | undefined;
   /** The app's own unsaved-changes prompt; true when it is safe to proceed. */
   confirmDiscard: () => Promise<boolean>;
+  /** The document as it stands, to tell whether it changed since the user answered. */
+  documentText: () => string;
 }
 
 /** How many lines of release notes the bar shows. */
@@ -41,6 +43,8 @@ function reason(error: unknown): string {
 export class UpdateFlow {
   private current: UpdateState = { kind: 'hidden' };
   private backend: UpdateBackend | undefined;
+  /** The document when the user agreed to discard it. */
+  private confirmedText: string | undefined;
   private readonly text: HTMLElement;
   private readonly notes: HTMLElement;
   private readonly primary: HTMLButtonElement;
@@ -82,6 +86,7 @@ export class UpdateFlow {
    */
   useBackend(backend: UpdateBackend): void {
     this.backend = backend;
+    this.confirmedText = undefined;
     this.set({ kind: 'hidden' });
   }
 
@@ -119,6 +124,7 @@ export class UpdateFlow {
       this.set({ kind: 'available', update });
       return;
     }
+    this.confirmedText = this.options.documentText();
 
     this.set({ kind: 'downloading', fraction: undefined });
     try {
@@ -141,13 +147,16 @@ export class UpdateFlow {
   /**
    * Restart into the installed update.
    *
-   * Asks about unsaved work again: anything typed during the download would
+   * Asks about unsaved work again only if the document changed since the
+   * user agreed to discard it: anything typed during the download would
    * otherwise be lost. Refusing leaves the update installed for next launch.
    */
   private async restart(): Promise<void> {
     const backend = this.backend;
     if (backend === undefined) return;
-    if (!(await this.options.confirmDiscard())) return;
+    const unchanged =
+      this.confirmedText !== undefined && this.options.documentText() === this.confirmedText;
+    if (!unchanged && !(await this.options.confirmDiscard())) return;
     try {
       await backend.relaunch();
     } catch (error) {

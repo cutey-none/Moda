@@ -237,24 +237,41 @@ try {
     JSON.stringify({ c, b }),
   );
 
+  // 5b. Dirty document, discard confirmed, nothing typed during the download:
+  //     the answer stands, so the user is asked once, not again before restart.
+  await cdp.eval(`window.__modaTest.askAnswer = true; window.__modaTest.asks = 0`);
+  await useBackend({ check: "return window.__makeUpdate('0.0.3');" });
+  await menu();
+  await click('更新并重启');
+  await sleep(300);
+  c = await counts();
+  let asks = await cdp.eval(`window.__modaTest.asks`);
+  record('未保存但已确认放弃：只问一次就重启', asks === 1 && c.relaunches === 1, JSON.stringify({ asks, c }));
+
   // 6. Edits made during the download: confirmed before, refused after.
   //    The update is installed but the app must not restart.
   await cdp.eval(`window.__modaTest.askAnswer = true; window.__modaTest.asks = 0`);
   await useBackend({
     check: "return window.__makeUpdate('0.0.3');",
-    install: "onProgress(0.5); window.__modaTest.askAnswer = false;",
+    install: `onProgress(0.5);
+      document.querySelector('.milkdown .ProseMirror').focus();
+      document.execCommand('insertText', false, '下载时写的');
+      await new Promise((r) => setTimeout(r, 300));
+      window.__modaTest.askAnswer = false;`,
   });
   await menu();
   await click('更新并重启');
-  await sleep(300);
+  await sleep(600);
   b = await bar();
   c = await counts();
+  asks = await cdp.eval(`window.__modaTest.asks`);
   record(
     '下载期间又有修改且取消：已安装但不重启',
-    c.installs === 1 && c.relaunches === 0 && b.text === 'Moda 0.0.3 已安装，重启后生效' &&
+    asks === 2 && c.installs === 1 && c.relaunches === 0 && b.text === 'Moda 0.0.3 已安装，重启后生效' &&
       JSON.stringify(b.buttons) === JSON.stringify(['立即重启', '稍后']),
-    JSON.stringify({ c, b }),
+    JSON.stringify({ asks, c, b }),
   );
+
   await cdp.eval(`window.__modaTest.askAnswer = true`);
   await click('立即重启');
   record('“立即重启”在确认后重启', (await counts()).relaunches === 1);

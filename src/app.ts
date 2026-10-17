@@ -162,6 +162,7 @@ export class ModaApp {
     this.updateFlow = new UpdateFlow(required<HTMLElement>('updatebar'), {
       backend: isTauri() ? tauriUpdateBackend : undefined,
       confirmDiscard: () => this.confirmDiscard(),
+      documentText: () => this.currentText(),
     });
   }
 
