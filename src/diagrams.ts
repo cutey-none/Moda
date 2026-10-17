@@ -34,6 +34,12 @@ function loadMermaid(): Promise<typeof import('mermaid').default> {
       // Diagram text comes from documents the user opened, which may not be
       // theirs: no script, no click handlers.
       securityLevel: 'strict',
+      // Mermaid 12 defaults to the ELK layout engine, which this app cannot
+      // ship (see `elk-stub.ts`). Dagre was Mermaid's default before it and
+      // lays out every diagram type; only a diagram that names ELK itself now
+      // gets the stub's explanation instead.
+      layout: 'dagre',
+      state: { layout: 'dagre' },
       theme: window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'default',
       fontFamily: getComputedStyle(document.documentElement)
         .getPropertyValue('--font-prose')

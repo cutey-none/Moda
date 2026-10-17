@@ -28,6 +28,17 @@ export default defineConfig(() => ({
       ignored: ['**/src-tauri/**'],
     },
   },
+  resolve: {
+    alias: {
+      // Mermaid's optional ELK layout is EPL-2.0, which cannot ship in an
+      // AGPL-3.0 app; see the stub for what replaces it.
+      // An absolute path: the dev server's dependency pre-bundler resolves
+      // this too, and it reads a root-relative `/src/…` as a filesystem path.
+      'elkjs/lib/elk.bundled.js': decodeURIComponent(
+        new URL('./src/elk-stub.ts', import.meta.url).pathname,
+      ),
+    },
+  },
   // Env vars with these prefixes are exposed through `import.meta.env`.
   envPrefix: ['VITE_', 'TAURI_ENV_*'],
   build: {
