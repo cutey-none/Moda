@@ -19,6 +19,11 @@ Two components need a deliberate choice, recorded here so it is not lost:
   `MIT OR Apache-2.0`). Where a choice exists, **Moda elects MIT** for the
   components that offer both, and relies on Apache-2.0 §4 obligations (retain
   notices, include the license text) for the Apache-only ones.
+- **elkjs** is a dependency of Mermaid, licensed EPL-2.0 without the
+  Secondary License notice that would make it GPL-compatible. **Moda does not
+  ship it**: `vite.config.ts` replaces the import with `src/elk-stub.ts`, and
+  Mermaid is configured to use its dagre layout instead. A diagram that asks
+  for `layout: elk` shows an explanation rather than a diagram.
 
 Build-time-only tooling (Vite, lightningcss, and their transitive dependencies)
 is **not** embedded in the shipped application bundle and imposes no obligation
@@ -81,6 +86,25 @@ build.
 | `prosemirror-virtual-cursor` | 0.4.2 | MIT | © 2022 ocavue |
 | `clsx` | 2.1.x | MIT | © Luke Edwards |
 | `lodash-es` | 4.17.x | MIT | © OpenJS Foundation and other contributors |
+
+### Diagrams
+
+Loaded on first use, when a document contains a ```` ```mermaid ```` block.
+Mermaid's remaining transitive dependencies are MIT unless listed here.
+
+| Component | Version | License | Copyright |
+| --- | --- | --- | --- |
+| `mermaid`, `@mermaid-js/parser` | 12.2.x / 2.0.x | MIT | © 2014-2024 Knut Sveidqvist and contributors |
+| `dagre-d3-es` | 7.0.x | MIT | © 2013 Chris Pettitt, © 2022 tbo47 |
+| `cytoscape` | 3.34.x | MIT | © 2016-2024 The Cytoscape Consortium |
+| `chevrotain` and `@chevrotain/*` | 13.2.x | Apache-2.0 | © 2015 SAP SE or an SAP affiliate company |
+| `d3` and `d3-*` | 7.9.x and 3.x | ISC | © 2010-2023 Mike Bostock |
+| `d3-sankey`, `d3-array@2`, `d3-path@1`, `d3-shape@1` | various | BSD-3-Clause | © 2010-2021 Mike Bostock |
+| `khroma` | 2.1.x | MIT | © Fabio Spampinato |
+| `marked` | 16.4.x | MIT | © 2018+ MarkedJS, © 2011-2018 Christopher Jeffrey |
+| `roughjs` | 4.6.x | MIT | © 2019 Preet Shihn |
+| `dayjs` | 1.11.x | MIT | © 2018-present iamkun |
+| `robust-predicates` | 3.0.x | Unlicense | — |
 
 ### Desktop runtime (Rust)
 

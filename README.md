@@ -51,6 +51,10 @@ Check with `node -v`, `pnpm -v` and `rustc --version`.
   out to markdown, so nothing is silently lost on save.
 - Markdown shortcuts while typing (`# `, `- `, `> `, ` ``` `, `**bold**`, …).
 - LaTeX math via KaTeX, inline and block.
+- Mermaid diagrams: a ```` ```mermaid ```` block shows the rendered diagram under
+  its source, and the source is what is saved. Rendering is local; Mermaid
+  loads the first time a document needs it. (Mermaid's ELK layout is left out
+  for licensing reasons — see `THIRD-PARTY-NOTICES.md`.)
 - A selection toolbar for applying formatting.
 - Code blocks are real CodeMirror instances, so they get syntax highlighting.
 
@@ -149,7 +153,7 @@ Not implemented yet:
   README
 - Replace (find is done: `⌘F`)
 - Preferences, custom themes, and user stylesheets
-- Mermaid diagrams
+- PlantUML diagrams
 - Typewriter and focus modes
 - Bundle polish: `CFBundleDocumentTypes` so Finder can open `.md` files with Moda
   (the app already declares the associations; Finder still hands the file to
@@ -240,6 +244,7 @@ pnpm check:external-open   # a document from outside opens *and renders*
 pnpm check:menu            # native menu choices run their commands
 pnpm check:outline         # the outline lists headings and jumps to them
 pnpm check:find            # ⌘F finds and highlights text in both modes
+pnpm check:diagrams        # mermaid blocks render, and save as source
 pnpm check:ipc-contract    # every command gets the arguments its Rust side declares
 ```
 
