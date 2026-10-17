@@ -24,6 +24,11 @@ const FLOWCHART = `flowchart LR
 const SEQUENCE = `sequenceDiagram
   Alice->>Bob: 你好`;
 
+/** A state diagram: the one type whose own default layout is ELK. */
+const STATE = `stateDiagram-v2
+  [*] --> 草稿
+  草稿 --> 已发布`;
+
 const DOCUMENT = `# 图表
 
 \`\`\`mermaid
@@ -32,6 +37,10 @@ ${FLOWCHART}
 
 \`\`\`mermaid
 ${SEQUENCE}
+\`\`\`
+
+\`\`\`mermaid
+${STATE}
 \`\`\`
 
 \`\`\`js
@@ -142,7 +151,7 @@ try {
   await sleep(4000);
 
   const previews = await cdp.eval(readPreviews);
-  record('有三个代码块', previews.length === 3, JSON.stringify(previews));
+  record('有四个代码块', previews.length === 4, JSON.stringify(previews));
   record(
     '流程图渲染成 SVG，含节点文字',
     previews[0]?.svg && ['写作', '保存', '发布'].every((t) => previews[0].text.includes(t)),
@@ -153,7 +162,12 @@ try {
     previews[1]?.svg && previews[1].text.includes('你好'),
     JSON.stringify(previews[1]),
   );
-  record('普通代码块没有预览', previews[2]?.text === null, JSON.stringify(previews[2]));
+  record(
+    '状态图不依赖 ELK 也能渲染',
+    previews[2]?.svg && previews[2].text.includes('已发布') && previews[2].error === null,
+    JSON.stringify(previews[2]),
+  );
+  record('普通代码块没有预览', previews[3]?.text === null, JSON.stringify(previews[3]));
 
   const shot = await cdp.send('Page.captureScreenshot', { format: 'png' });
   writeFileSync(SHOT_PATH, Buffer.from(shot.data, 'base64'));
