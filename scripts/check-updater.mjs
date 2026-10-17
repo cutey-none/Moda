@@ -116,6 +116,8 @@ try {
         invoke: async (cmd) => {
           if (cmd.startsWith('plugin:dialog|')) {
             window.__modaTest.asks += 1;
+            // A pending gate keeps the dialog open, as a real sheet would.
+            if (window.__modaTest.askGate) await window.__modaTest.askGate;
             // ask() resolves true only when the dialog answered its OK label.
             return window.__modaTest.askAnswer ? 'Yes' : 'No';
           }
@@ -167,7 +169,7 @@ try {
   const counts = () => cdp.eval(`window.__u`);
   const click = async (label) => {
     await cdp.eval(`[...document.querySelectorAll('#updatebar button')]
-      .find((b) => !b.hidden && b.textContent === ${JSON.stringify(label)}).click()`);
+      .find((b) => !b.hidden && b.textContent === ${JSON.stringify(label)})?.click()`);
     await sleep(300);
   };
   const menu = async () => {
@@ -248,6 +250,17 @@ try {
   let asks = await cdp.eval(`window.__modaTest.asks`);
   record('未保存但已确认放弃：只问一次就重启', asks === 1 && c.relaunches === 1, JSON.stringify({ asks, c }));
 
+  // 5c. Choosing the menu item while the discard prompt is still open is ignored.
+  await cdp.eval(`window.__modaTest.askGate = new Promise((r) => { window.__releaseAsk = r; }); true`);
+  await useBackend({ check: "return window.__makeUpdate('0.0.3');" });
+  await menu();
+  await click('更新并重启');
+  await menu();
+  c = await counts();
+  record('确认框未关时再次检查被忽略', c.checks === 1, JSON.stringify(c));
+  await cdp.eval(`window.__modaTest.askGate = null; window.__releaseAsk()`);
+  await sleep(300);
+
   // 6. Edits made during the download: confirmed before, refused after.
   //    The update is installed but the app must not restart.
   await cdp.eval(`window.__modaTest.askAnswer = true; window.__modaTest.asks = 0`);
@@ -272,6 +285,13 @@ try {
     JSON.stringify({ asks, c, b }),
   );
 
+  // 6b. Once installed, checking again shows the installed update instead of
+  //     offering the same one for a second download.
+  await click('稍后');
+  await menu();
+  b = await bar();
+  c = await counts();
+  record('已安装后再次检查：提示重启而非重新下载', c.checks === 1 && b.text === 'Moda 0.0.3 已安装，重启后生效', JSON.stringify({ c, b }));
   await cdp.eval(`window.__modaTest.askAnswer = true`);
   await click('立即重启');
   record('“立即重启”在确认后重启', (await counts()).relaunches === 1);

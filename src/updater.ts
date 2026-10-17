@@ -43,6 +43,10 @@ function reason(error: unknown): string {
 export class UpdateFlow {
   private current: UpdateState = { kind: 'hidden' };
   private backend: UpdateBackend | undefined;
+  /** Set from "更新并重启" until that install is over, dialogs included. */
+  private busy = false;
+  /** The update already installed; this copy only needs a restart. */
+  private installed: AvailableUpdate | undefined;
   /** The document when the user agreed to discard it. */
   private confirmedText: string | undefined;
   private readonly text: HTMLElement;
@@ -86,6 +90,7 @@ export class UpdateFlow {
    */
   useBackend(backend: UpdateBackend): void {
     this.backend = backend;
+    this.installed = undefined;
     this.confirmedText = undefined;
     this.set({ kind: 'hidden' });
   }
@@ -93,13 +98,18 @@ export class UpdateFlow {
   /**
    * Ask the update server whether there is a newer release.
    *
-   * Ignored while a check or a download is already under way, so a second
-   * click cannot start a second download.
+   * Ignored while a check or an install is already under way, so a second
+   * click cannot start a second download. Once an update is installed, the
+   * server would only offer it again, so the bar asks for a restart instead.
    */
   async checkForUpdates(): Promise<void> {
     const backend = this.backend;
     if (backend === undefined) return;
-    if (this.current.kind === 'checking' || this.current.kind === 'downloading') return;
+    if (this.busy || this.current.kind === 'checking') return;
+    if (this.installed !== undefined) {
+      this.set({ kind: 'ready', update: this.installed });
+      return;
+    }
 
     this.set({ kind: 'checking' });
     try {
@@ -120,28 +130,35 @@ export class UpdateFlow {
 
   /** Download and install, then restart — each step only with the user's leave. */
   private async install(update: AvailableUpdate): Promise<void> {
-    if (!(await this.options.confirmDiscard())) {
-      this.set({ kind: 'available', update });
-      return;
-    }
-    this.confirmedText = this.options.documentText();
-
-    this.set({ kind: 'downloading', fraction: undefined });
+    if (this.busy) return;
+    this.busy = true;
     try {
-      await update.install((fraction) => {
-        this.set({ kind: 'downloading', fraction });
-      });
-    } catch (error) {
-      this.set({
-        kind: 'failed',
-        message: `更新失败：${reason(error)}`,
-        retry: () => void this.install(update),
-      });
-      return;
-    }
+      if (!(await this.options.confirmDiscard())) {
+        this.set({ kind: 'available', update });
+        return;
+      }
+      this.confirmedText = this.options.documentText();
 
-    this.set({ kind: 'ready', update });
-    await this.restart();
+      this.set({ kind: 'downloading', fraction: undefined });
+      try {
+        await update.install((fraction) => {
+          this.set({ kind: 'downloading', fraction });
+        });
+      } catch (error) {
+        this.set({
+          kind: 'failed',
+          message: `更新失败：${reason(error)}`,
+          retry: () => void this.install(update),
+        });
+        return;
+      }
+
+      this.installed = update;
+      this.set({ kind: 'ready', update });
+      await this.restart();
+    } finally {
+      this.busy = false;
+    }
   }
 
   /**
