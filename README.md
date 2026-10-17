@@ -57,6 +57,9 @@ Check with `node -v`, `pnpm -v` and `rustc --version`.
   for licensing reasons — see `THIRD-PARTY-NOTICES.md`.)
 - A selection toolbar for applying formatting.
 - Code blocks are real CodeMirror instances, so they get syntax highlighting.
+- **In-app updates.** Moda → 检查更新… asks GitHub for the newest release and, if
+  there is one, downloads it, verifies its signature, installs it and restarts —
+  after asking about unsaved changes. Moda never checks on its own.
 
 **Files**
 
@@ -170,6 +173,7 @@ src/
   shortcuts.ts        the Typora-aligned keymap
   remark-image-title.ts  normalises image nodes so Milkdown can parse them
   tauri.ts            the only place that talks to Rust (IPC + native dialogs)
+  updater.ts          the 检查更新… flow and its bar
   styles.css          app chrome + the Typora-like content theme
 scripts/
   check-caret.mjs     browser-driven UI checks (see Verification)
@@ -177,6 +181,7 @@ scripts/
   check-scrolling.mjs
   check-shortcuts.mjs
   check-rendering.mjs
+  make-update-manifest.mjs  writes latest.json for a release
   check-macos-bundle.sh  the built bundle is ad-hoc signed (see Distribution)
 .github/
   workflows/release.yml  tag-triggered release: unsigned macOS DMGs
@@ -244,6 +249,7 @@ pnpm check:external-open   # a document from outside opens *and renders*
 pnpm check:menu            # native menu choices run their commands
 pnpm check:outline         # the outline lists headings and jumps to them
 pnpm check:find            # ⌘F finds and highlights text in both modes
+pnpm check:updater         # 检查更新… reports every outcome, restarts only after an install
 pnpm check:diagrams        # mermaid blocks render, and save as source
 pnpm check:ipc-contract    # every command gets the arguments its Rust side declares
 ```
@@ -532,6 +538,12 @@ rm -rf ~/Library/WebKit/com.cutey.moda \
 Build it from source — the same code, compiled on your machine, with no Gatekeeper
 step anywhere: see [Quick start](#quick-start).
 
+#### Updating
+
+From 0.0.3 on, choose **Moda → 检查更新…**. Updates arrive inside the app, so they
+carry no quarantine flag and need no `xattr`. Versions 0.0.1 and 0.0.2 have no
+updater: install 0.0.3 by hand once, as above.
+
 ### Cutting a release
 
 To cut a release, bump the version in `package.json` **and**
@@ -541,6 +553,18 @@ the tag), commit, then tag and push:
 ```bash
 git tag v0.2.0 && git push origin v0.2.0
 ```
+
+**One-time setup.** Updates are signed with Tauri's updater key, which is
+unrelated to Apple signing. The public half is `plugins.updater.pubkey` in
+`tauri.conf.json`; the private half must exist as two repository secrets:
+
+| Secret | Value |
+| --- | --- |
+| `TAURI_SIGNING_PRIVATE_KEY` | the contents of `~/.tauri/moda-updater.key` |
+| `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | its password |
+
+Back the key up. If it is lost, no installed copy can verify another update and
+every user has to reinstall by hand. Without the secrets the build step fails.
 
 [release.yml](.github/workflows/release.yml) takes it from there:
 
@@ -553,8 +577,10 @@ git tag v0.2.0 && git push origin v0.2.0
 3. **Checks** each bundle with [check-macos-bundle.sh](scripts/check-macos-bundle.sh),
    so a release cannot be published from a build that has slipped back into the
    "damaged" state.
-4. **Publishes** `Moda_<version>_aarch64.dmg`, `Moda_<version>_x64.dmg` and a
-   combined `SHA256SUMS.txt`, with the note below written into the release body.
+4. **Publishes** `Moda_<version>_aarch64.dmg`, `Moda_<version>_x64.dmg`, the update
+   packages `Moda_<arch>.app.tar.gz` with their `.sig` signatures, `latest.json`
+   (what installed copies read) and a combined `SHA256SUMS.txt`, with the note
+   below written into the release body.
 
 A tag containing a hyphen (`v0.2.0-rc.1`) is published as a pre-release. The
 workflow creates the release as a draft and then promotes it in a second step, so
