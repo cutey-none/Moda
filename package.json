@@ -20,6 +20,7 @@
     "check:menu": "node scripts/check-menu.mjs",
     "check:outline": "node scripts/check-outline.mjs",
     "check:find": "node scripts/check-find.mjs",
+    "check:diagrams": "node scripts/check-diagrams.mjs",
     "check:updater": "node scripts/check-updater.mjs",
     "check:autosave": "node scripts/check-autosave.mjs",
     "check:ipc-contract": "node scripts/check-ipc-contract.mjs",
