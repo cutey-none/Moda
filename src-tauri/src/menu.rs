@@ -133,6 +133,17 @@ pub fn handle_event<R: Runtime>(app: &AppHandle<R>, id: &str) {
     let _ = app.emit(MENU_EVENT, MenuPayload { command });
 }
 
+/// About shows the version from `tauri.conf.json` — the one releases bump and
+/// the updater compares against — not `Cargo.toml`'s, which nothing checks.
+fn about_metadata(version: &str) -> AboutMetadata {
+    AboutMetadata {
+        name: Some("Moda".to_string()),
+        version: Some(version.to_string()),
+        comments: Some("所见即所得的 Markdown 编辑器".to_string()),
+        ..Default::default()
+    }
+}
+
 /// Build the application menu.
 ///
 /// `SubmenuBuilder` is used for each menu rather than `MenuBuilder`, because a
@@ -145,12 +156,7 @@ pub fn build<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {
         MenuItemBuilder::with_id("check-for-updates", "检查更新…").build(app)?;
 
     let app_menu = SubmenuBuilder::new(app, "Moda")
-        .about(Some(AboutMetadata {
-            name: Some("Moda".to_string()),
-            version: Some(env!("CARGO_PKG_VERSION").to_string()),
-            comments: Some("所见即所得的 Markdown 编辑器".to_string()),
-            ..Default::default()
-        }))
+        .about(Some(about_metadata(&app.package_info().version.to_string())))
         .item(&check_for_updates)
         .separator()
         .services()
@@ -233,6 +239,13 @@ fn item<R: Runtime>(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn about_shows_the_version_it_is_given() {
+        let about = about_metadata("9.8.7");
+        assert_eq!(about.version.as_deref(), Some("9.8.7"));
+        assert_eq!(about.name.as_deref(), Some("Moda"));
+    }
 
     #[test]
     fn every_command_id_maps_back_to_its_command() {
