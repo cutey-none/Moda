@@ -1047,7 +1047,17 @@ html:not([data-shell='tauri']) body {
   content: none;
 }
 
+/* Inline, not Crepe's `inline-block`: an inline block is as wide as its longest
+   unbreakable run, so a path or URL in backticks pushed straight out of its
+   table cell and across the next column. As plain inline text it wraps with the
+   line, `anywhere` lets a run with no spaces break too (and lets a table column
+   shrink to fit), and `clone` repeats the padding and rounded ends on each line
+   it wraps onto. */
 .milkdown .ProseMirror code {
+  display: inline;
+  overflow-wrap: anywhere;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
   font-family: var(--font-mono);
   font-size: 0.875em;
   padding: 2px 5px;
