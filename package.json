@@ -23,6 +23,7 @@
     "check:diagrams": "node scripts/check-diagrams.mjs",
     "check:updater": "node scripts/check-updater.mjs",
     "check:autosave": "node scripts/check-autosave.mjs",
+    "check:external-change": "node scripts/check-external-change.mjs",
     "check:ipc-contract": "node scripts/check-ipc-contract.mjs",
     "check:bundle": "scripts/check-macos-bundle.sh",
     "verify:save": "scripts/verify-save-in-app.sh",
