@@ -71,6 +71,10 @@ Check with `node -v`, `pnpm -v` and `rustc --version`.
   changes.
 - Closing the window, or discarding an open document, asks for confirmation when
   there is unsaved work.
+- **Changes made in other apps.** Switching back to Moda re-reads the open file.
+  If it changed and there are no unsaved edits here, the new version appears in
+  place; if both sides changed, Moda asks which to keep. Autosave never
+  overwrites a version another app saved.
 - **Finder integration.** `.md`, `.markdown`, `.mdown`, `.mkd`, and `.txt` are
   associated with Moda, so double-clicking a document opens it. Launching while
   Moda is already running reuses the existing window rather than starting a
@@ -246,6 +250,7 @@ pnpm check:shortcuts       # every bound shortcut actually formats the text
 pnpm check:rendering       # every markdown construct renders *and* round-trips
 pnpm check:sidebar         # the file tree renders, expands, and opens files
 pnpm check:external-open   # a document from outside opens *and renders*
+pnpm check:external-change # edits made in other apps are picked up on return
 pnpm check:menu            # native menu choices run their commands
 pnpm check:outline         # the outline lists headings and jumps to them
 pnpm check:find            # ⌘F finds and highlights text in both modes
