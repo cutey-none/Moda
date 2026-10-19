@@ -256,6 +256,23 @@ export function confirmDiscard(
 }
 
 /**
+ * Ask whether to take the version of the open file another app just saved.
+ *
+ * Only asked when the document also has unsaved edits here, so one side's work
+ * is lost either way; the buttons say which.
+ *
+ * @returns true to load the disk version, false to keep the edits in Moda.
+ */
+export function confirmReloadFromDisk(message: string): Promise<boolean> {
+  return ask(message, {
+    title: '文件已在其他应用中修改',
+    kind: 'warning',
+    okLabel: '载入磁盘上的版本',
+    cancelLabel: '保留我的更改',
+  });
+}
+
+/**
  * Ask the user for a single line of text.
  *
  * The dialog plugin has no text prompt, so the webview's own `prompt` is used.
@@ -306,6 +323,27 @@ export async function guardWindowClose(
     const { getCurrentWindow } = await import('@tauri-apps/api/window');
     await getCurrentWindow().onCloseRequested(async (event) => {
       if (!(await onCloseRequested())) event.preventDefault();
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Call back whenever the window becomes the active one.
+ *
+ * The native signal, from the window itself. The webview's own `focus` event
+ * should fire at the same moment, but whether it does on an app switch is up
+ * to WebKit; this one does not depend on that.
+ *
+ * @returns whether the listener was installed.
+ */
+export async function onWindowFocused(onFocused: () => void): Promise<boolean> {
+  try {
+    const { getCurrentWindow } = await import('@tauri-apps/api/window');
+    await getCurrentWindow().onFocusChanged(({ payload: focused }) => {
+      if (focused) onFocused();
     });
     return true;
   } catch {

@@ -16,11 +16,13 @@ import { Sidebar } from './sidebar';
 import { installSidebarResize } from './sidebar-resize';
 import {
   confirmDiscard as askDiscard,
+  confirmReloadFromDisk,
   describeFileError,
   fileExists,
   guardWindowClose,
   onMenuCommand,
   onOpenFilesRequested,
+  onWindowFocused,
   pickAndReadDocument,
   pickSavePath,
   promptForText,
@@ -105,6 +107,16 @@ export class ModaApp {
   private text = EMPTY_DOCUMENT;
   /** Whether `text` differs from what is on disk. */
   private dirty = false;
+  /**
+   * The file's contents as this app last read or wrote them.
+   *
+   * What a later read is compared against to tell that another app changed the
+   * file. Contents rather than a modification time, so a save from here — or a
+   * `touch` that changes nothing — is never mistaken for someone else's edit.
+   */
+  private diskText: string | undefined;
+  /** Whether a check for outside changes is already running. */
+  private checkingDisk = false;
   private mode: ViewMode = 'wysiwyg';
   /** Guard against re-entrant file operations from held-down shortcuts. */
   private busy = false;
@@ -172,6 +184,7 @@ export class ModaApp {
     this.bindEditorEngagement();
     this.bindShortcuts();
     this.bindCloseGuard();
+    this.bindDiskCheck();
     await this.bindHostEvents();
 
     // A document handed in from outside — a Finder double-click, or a path on the
@@ -354,6 +367,7 @@ export class ModaApp {
   private async loadDocument(document: Document): Promise<void> {
     this.path = document.path;
     this.text = document.contents;
+    this.diskText = document.contents;
     this.started = true;
     if (this.mode === 'source') {
       this.sourceArea.value = document.contents;
@@ -415,6 +429,7 @@ export class ModaApp {
       const contents = this.currentText();
       const saved = await writeDocument(path, contents);
       this.path = saved.path;
+      this.diskText = contents;
       // Typing can continue while the write is in flight. Only what was written
       // is clean; anything typed since still needs saving.
       this.dirty = this.currentText() !== contents;
@@ -902,6 +917,96 @@ export class ModaApp {
         void this.toggleMode();
       }
     });
+  }
+
+  /**
+   * Look for outside changes whenever the window comes back to the front.
+   *
+   * Switching to another app, editing the file there and switching back is the
+   * case this exists for, and coming back is exactly when the window regains
+   * focus. A file watcher would also notice edits made while Moda is in front,
+   * but nothing can be typed into two apps at once.
+   */
+  private bindDiskCheck(): void {
+    // Both signals, in case one of them is not delivered on an app switch. When
+    // both are, the second finds the first still running, or finds nothing new.
+    const check = () => {
+      void this.checkDiskForChanges();
+    };
+    window.addEventListener('focus', check);
+    void onWindowFocused(check);
+  }
+
+  /**
+   * Bring in a version of the open file that another app saved.
+   *
+   * Without edits here, the new version simply replaces the old. With edits on
+   * both sides one of them has to go, so the user decides; keeping Moda's means
+   * the next save overwrites the other app's version, and they are not asked
+   * again about that same version on every return to the window.
+   *
+   * Public so `scripts/check-external-change.mjs` can run it without a real
+   * focus change.
+   */
+  async checkDiskForChanges(): Promise<void> {
+    const path = this.path;
+    if (path === undefined || this.busy || this.checkingDisk) return;
+    this.checkingDisk = true;
+    try {
+      let document: Document;
+      try {
+        document = await readDocument(path);
+      } catch {
+        // Moved, renamed or deleted. What is on screen is now the only copy, so
+        // it stays; saving writes it back to the same path.
+        this.setState('文件已不在原位置，保存会重新写回该路径');
+        return;
+      }
+      // The user may have opened something else while the read was in flight.
+      if (this.path !== path || document.contents === this.diskText) return;
+
+      if (this.dirty) {
+        const reload = await confirmReloadFromDisk(
+          `「${this.displayName()}」已在其他应用中修改，而这里也有未保存的更改。`,
+        );
+        if (this.path !== path) return;
+        if (!reload) {
+          this.diskText = document.contents;
+          this.setState('已保留你的更改，保存时会覆盖其他应用的修改');
+          return;
+        }
+      }
+      this.reloadFromDisk(document);
+    } finally {
+      this.checkingDisk = false;
+    }
+  }
+
+  /**
+   * Show the disk's version of the open document in place.
+   *
+   * Unlike opening a file, this keeps the view where it was: the user was
+   * reading somewhere in this document and expects to still be there.
+   */
+  private reloadFromDisk(document: Document): void {
+    this.text = document.contents;
+    this.diskText = document.contents;
+    if (this.mode === 'source') {
+      const { scrollTop, selectionStart, selectionEnd } = this.sourceArea;
+      this.sourceArea.value = document.contents;
+      this.sourceArea.setSelectionRange(selectionStart, selectionEnd);
+      this.sourceArea.scrollTop = scrollTop;
+    } else if (this.editor !== undefined) {
+      const scroller = this.editorRoot.querySelector<HTMLElement>('.milkdown');
+      const scrollTop = scroller?.scrollTop ?? 0;
+      this.editor.load(document.contents);
+      if (scroller) scroller.scrollTop = scrollTop;
+    }
+    this.dirty = false;
+    this.render();
+    this.refreshOutline();
+    this.findBar.refresh();
+    this.setState('文件已在其他应用中修改，已重新载入');
   }
 
   /**
