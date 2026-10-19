@@ -118,7 +118,11 @@ try {
       window.__TAURI_INTERNALS__ = {
         invoke: async (cmd, args = {}) => {
           if (cmd === 'read_document') {
-            return { path: args.path, name: 'note.md', contents: ${JSON.stringify(INITIAL)}, modifiedMs: 0 };
+            // Reads back what was last saved, as a disk would: autosave reads
+            // the file first to make sure no other app has changed it.
+            const last = window.__modaTest.saves.findLast((save) => save.path === args.path);
+            const contents = last ? last.contents : ${JSON.stringify(INITIAL)};
+            return { path: args.path, name: 'note.md', contents, modifiedMs: 0 };
           }
           if (cmd === 'save_document') {
             if (typeof args.path !== 'string' || typeof args.contents !== 'string') {

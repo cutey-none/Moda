@@ -419,8 +419,31 @@ export class ModaApp {
       // A dialog may be open (save as, discard), or the document may have been
       // saved or replaced since the edit; any of those makes this save moot.
       if (!this.dirty || this.path === undefined || this.busy) return;
-      void this.writeTo(this.path, '已自动保存');
+      void this.autosave(this.path);
     }, AUTOSAVE_DELAY_MS);
+  }
+
+  /**
+   * Save without asking — unless another app has changed the file meanwhile.
+   *
+   * The timer can fire after the user has switched away, and in that gap the
+   * other app may have saved. Writing then would silently replace its version,
+   * so the disk is read first, and a changed file is left for
+   * {@link checkDiskForChanges} to resolve with the user.
+   */
+  private async autosave(path: string): Promise<void> {
+    try {
+      const onDisk = await readDocument(path);
+      if (onDisk.contents !== this.diskText) {
+        this.setState('文件已在其他应用中修改，未自动保存');
+        if (document.hasFocus()) void this.checkDiskForChanges();
+        return;
+      }
+    } catch {
+      // Gone from disk: saving puts it back, which is what autosave is for.
+    }
+    if (!this.dirty || this.path !== path || this.busy) return;
+    await this.writeTo(path, '已自动保存');
   }
 
   private async writeTo(path: string, savedLabel = '已保存'): Promise<void> {
