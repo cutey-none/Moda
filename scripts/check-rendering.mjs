@@ -118,6 +118,7 @@ const DOCUMENT = `# 一级标题
 | 列一 | 列二 |
 | --- | --- |
 | 单元格 | 值 |
+| 长路径 | \`/Users/someone/projects/moda/node_modules/.pnpm/@milkdown+components@7.22.2/node_modules\` |
 
 \`\`\`js
 const x = 1;
@@ -190,6 +191,17 @@ const CONTENT_EXPECTATIONS = [
       const img = [...editor.querySelectorAll('img[src]')]
         .find((candidate) => !candidate.classList.contains('ProseMirror-separator'));
       return Boolean(img) && img.getAttribute('alt') === '图片说明';
+    })()`,
+  ],
+  [
+    '表格中的长行内代码不溢出单元格',
+    // A run with no spaces used to stay on one line as an inline block and run
+    // across the neighbouring column.
+    `(() => {
+      const code = [...editor.querySelectorAll('td code')]
+        .find((candidate) => candidate.textContent.includes('node_modules'));
+      if (!code) return false;
+      return code.getBoundingClientRect().right <= code.closest('td').getBoundingClientRect().right;
     })()`,
   ],
 ];
