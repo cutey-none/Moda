@@ -1,6 +1,6 @@
 [package]
 name = "moda"
-version = "0.0.2"
+version = "0.0.3"
 description = "A WYSIWYG markdown editor for macOS"
 authors = ["cutey"]
 edition = "2024"
